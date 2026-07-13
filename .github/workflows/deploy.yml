@@ -1,0 +1,71 @@
+name: Deploy application
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: signaldesk-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Artifact Registry authentication
+        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build and publish immutable image
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE" app
+          docker push "$IMAGE"
+
+      - name: Deploy revision without traffic
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ github.sha }}
+        run: |
+          gcloud run deploy "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --image "$IMAGE" \
+            --no-traffic \
+            --tag candidate \
+            --quiet
+
+      - name: Smoke test candidate revision
+        run: |
+          CANDIDATE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format='value(status.traffic[?tag==`candidate`].url)')"
+          test -n "$CANDIDATE_URL"
+          curl --fail --retry 5 --retry-all-errors "$CANDIDATE_URL/health/ready"
+
+      - name: Promote candidate
+        run: |
+          gcloud run services update-traffic "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --to-tags candidate=100 \
+            --quiet

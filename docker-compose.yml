@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: signaldesk
+      POSTGRES_USER: signaldesk
+      POSTGRES_PASSWORD: signaldesk
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signaldesk -d signaldesk"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - signaldesk-db:/var/lib/postgresql/data
+
+  api:
+    build: ./app
+    environment:
+      APP_ENV: local
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+psycopg://signaldesk:signaldesk@db:5432/signaldesk
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  signaldesk-db:

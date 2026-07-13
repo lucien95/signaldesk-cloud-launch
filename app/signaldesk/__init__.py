@@ -1,0 +1,1 @@
+"""SignalDesk booking API."""
