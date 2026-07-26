@@ -1,6 +1,8 @@
 .DS_Store
 .env
 .venv/
+.security-venv/
+.tools/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
@@ -12,9 +14,15 @@ __pycache__/
 *.tfstate
 *.tfstate.*
 *.tfplan
+*.tfplan.json
 crash.log
 terraform.tfvars
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Generated security evidence
+security-reports/
+sbom*.json
+*.sarif

@@ -1,30 +1,41 @@
-name: Terraform checks
+name: Terraform quality
 
 on:
   pull_request:
-    paths:
-      - "terraform/**"
-      - ".github/workflows/terraform.yml"
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   validate:
+    name: Validate ${{ matrix.directory }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         directory:
           - terraform/bootstrap
           - terraform/environments/dev
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - name: Check out the trusted revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
         with:
-          terraform_version: 1.5.7
-      - run: terraform fmt -check -recursive
+          persist-credentials: false
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.15.8
+
+      - name: Verify Terraform formatting
         working-directory: ${{ matrix.directory }}
-      - run: terraform init -backend=false
+        run: terraform fmt -check -recursive
+
+      - name: Initialize providers without a backend
         working-directory: ${{ matrix.directory }}
-      - run: terraform validate
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Validate Terraform configuration
         working-directory: ${{ matrix.directory }}
+        run: terraform validate

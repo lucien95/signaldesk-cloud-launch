@@ -1,0 +1,5 @@
+# Copy this file to backend.tf only after the first bootstrap apply creates the
+# bucket, then run the migration command in docs/deployment.md.
+terraform {
+  backend "gcs" {}
+}

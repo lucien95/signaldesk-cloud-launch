@@ -26,6 +26,11 @@ variable "deploy_service_account_email" {
   type        = string
 }
 
+variable "terraform_service_account_email" {
+  description = "GitHub Terraform service-account email created by terraform/bootstrap."
+  type        = string
+}
+
 variable "monthly_budget_usd" {
   description = "Monthly budget amount; this is an alert, not a hard spending cap."
   type        = number

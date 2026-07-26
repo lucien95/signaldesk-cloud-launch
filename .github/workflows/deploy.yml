@@ -1,71 +1,130 @@
-name: Deploy application
+name: Application deployment
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "app/**"
-      - ".github/workflows/deploy.yml"
+  workflow_call:
+    inputs:
+      commit_sha:
+        description: Commit whose image must be built and deployed.
+        required: true
+        type: string
 
 permissions:
   contents: read
   id-token: write
 
-concurrency:
-  group: signaldesk-dev-deploy
-  cancel-in-progress: false
-
 jobs:
   deploy:
+    name: Scan, release, verify, and promote
     runs-on: ubuntu-latest
     environment: development
     steps:
-      - uses: actions/checkout@v4
-
-      - id: auth
-        uses: google-github-actions/auth@v3
+      - name: Check out the approved commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
 
-      - uses: google-github-actions/setup-gcloud@v3
+      - name: Install checksum-verified Trivy
+        run: |
+          ./scripts/install-trivy.sh
+          echo "${GITHUB_WORKSPACE}/.tools/bin" >> "${GITHUB_PATH}"
+
+      - name: Build the release candidate once
+        env:
+          IMAGE_TAG: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ inputs.commit_sha }}
+        run: docker build --tag "${IMAGE_TAG}" app
+
+      - name: Block vulnerable release candidates
+        env:
+          IMAGE_TAG: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ inputs.commit_sha }}
+        run: >-
+          trivy image
+          --scanners vuln,secret
+          --severity HIGH,CRITICAL
+          --ignore-unfixed
+          --exit-code 1
+          "${IMAGE_TAG}"
+
+      - name: Generate the release SBOM
+        env:
+          IMAGE_TAG: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ inputs.commit_sha }}
+        run: >-
+          trivy image
+          --format cyclonedx
+          --output signaldesk-release.cdx.json
+          "${IMAGE_TAG}"
+
+      - name: Preserve release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signaldesk-release-sbom-${{ inputs.commit_sha }}
+          path: signaldesk-release.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Obtain short-lived Google Cloud credentials
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_APP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_APP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Configure Artifact Registry authentication
         run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
 
-      - name: Build and publish immutable image
+      - name: Publish the scanned image and resolve its digest
+        id: image
         env:
-          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ github.sha }}
+          IMAGE_TAG: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ inputs.commit_sha }}
         run: |
-          docker build -t "$IMAGE" app
-          docker push "$IMAGE"
+          docker push "${IMAGE_TAG}"
+          IMAGE_DIGEST="$(gcloud artifacts docker images describe "${IMAGE_TAG}" --format='value(image_summary.digest)')"
+          test -n "${IMAGE_DIGEST}"
+          echo "uri=${IMAGE_TAG%:*}@${IMAGE_DIGEST}" >> "${GITHUB_OUTPUT}"
 
-      - name: Deploy revision without traffic
-        env:
-          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/signaldesk-api:${{ github.sha }}
+      - name: Deploy the immutable image without production traffic
         run: |
           gcloud run deploy "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
-            --image "$IMAGE" \
+            --image "${{ steps.image.outputs.uri }}" \
             --no-traffic \
             --tag candidate \
             --quiet
 
-      - name: Smoke test candidate revision
+      - name: Smoke-test the candidate revision
         run: |
+          # shellcheck disable=SC2016
           CANDIDATE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
             --format='value(status.traffic[?tag==`candidate`].url)')"
-          test -n "$CANDIDATE_URL"
-          curl --fail --retry 5 --retry-all-errors "$CANDIDATE_URL/health/ready"
+          test -n "${CANDIDATE_URL}"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "${CANDIDATE_URL}/health/ready"
 
-      - name: Promote candidate
+      - name: Promote only the verified candidate
         run: |
+          # shellcheck disable=SC2016
+          CANDIDATE_REVISION="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format='value(status.traffic[?tag==`candidate`].revisionName)')"
+          test -n "${CANDIDATE_REVISION}"
           gcloud run services update-traffic "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
-            --to-tags candidate=100 \
+            --to-revisions "${CANDIDATE_REVISION}=100" \
             --quiet
+
+      - name: Verify the public service after promotion
+        run: |
+          SERVICE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "${{ vars.GCP_REGION }}" \
+            --format='value(status.url)')"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "${SERVICE_URL}/health/ready"

@@ -12,12 +12,15 @@ locals {
 
   required_services = toset([
     "artifactregistry.googleapis.com",
+    "billingbudgets.googleapis.com",
     "cloudbilling.googleapis.com",
+    "compute.googleapis.com",
     "iam.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "run.googleapis.com",
     "secretmanager.googleapis.com",
+    "servicenetworking.googleapis.com",
     "sqladmin.googleapis.com",
   ])
 }
@@ -31,6 +34,7 @@ resource "google_project_service" "required" {
 }
 
 resource "google_artifact_registry_repository" "app" {
+  # checkov:skip=CKV_GCP_84:Google-managed encryption is proportionate for the cost-capped development environment; production would use a separately governed CMEK.
   project       = var.project_id
   location      = var.region
   repository_id = "signaldesk"
@@ -72,10 +76,81 @@ resource "google_project_iam_member" "runtime_roles" {
   member  = google_service_account.runtime.member
 }
 
+resource "google_compute_network" "application" {
+  project                 = var.project_id
+  name                    = local.name
+  auto_create_subnetworks = false
+  routing_mode            = "REGIONAL"
+
+  depends_on = [google_project_service.required]
+}
+
+resource "google_compute_subnetwork" "application" {
+  project                  = var.project_id
+  name                     = local.name
+  region                   = var.region
+  network                  = google_compute_network.application.id
+  ip_cidr_range            = "10.10.0.0/24"
+  private_ip_google_access = true
+
+  log_config {
+    aggregation_interval = "INTERVAL_5_SEC"
+    flow_sampling        = 0.5
+    metadata             = "INCLUDE_ALL_METADATA"
+  }
+}
+
+resource "google_compute_subnetwork_iam_member" "application_deployer_network_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = google_compute_subnetwork.application.name
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:${var.deploy_service_account_email}"
+}
+
+resource "google_compute_global_address" "private_service_access" {
+  project       = var.project_id
+  name          = "${local.name}-private-services"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.application.id
+}
+
+resource "google_compute_firewall" "deny_unsolicited_ingress" {
+  project   = var.project_id
+  name      = "${local.name}-deny-ingress"
+  network   = google_compute_network.application.name
+  direction = "INGRESS"
+  priority  = 65534
+
+  deny {
+    protocol = "all"
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+}
+
+resource "google_service_networking_connection" "private_service_access" {
+  network                 = google_compute_network.application.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_service_access.name]
+}
+
 resource "google_service_account_iam_member" "deployer_can_act_as_runtime" {
   service_account_id = google_service_account.runtime.name
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${var.deploy_service_account_email}"
+}
+
+resource "google_service_account_iam_member" "terraform_can_act_as_runtime" {
+  service_account_id = google_service_account.runtime.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${var.terraform_service_account_email}"
 }
 
 resource "random_password" "database" {
@@ -88,7 +163,7 @@ resource "google_sql_database_instance" "postgres" {
   project             = var.project_id
   name                = local.name
   region              = var.region
-  database_version    = "POSTGRES_16"
+  database_version    = "POSTGRES_18"
   deletion_protection = var.database_deletion_protection
 
   settings {
@@ -111,9 +186,61 @@ resource "google_sql_database_instance" "postgres" {
       }
     }
 
+    database_flags {
+      name  = "cloudsql.enable_pgaudit"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_checkpoints"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_connections"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_disconnections"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_duration"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_hostname"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_lock_waits"
+      value = "on"
+    }
+
+    database_flags {
+      name  = "log_min_error_statement"
+      value = "error"
+    }
+
+    database_flags {
+      name  = "log_statement"
+      value = "ddl"
+    }
+
+    database_flags {
+      name  = "pgaudit.log"
+      value = "ddl,role"
+    }
+
     ip_configuration {
-      ipv4_enabled = true
-      ssl_mode     = "ENCRYPTED_ONLY"
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.application.id
+      enable_private_path_for_google_cloud_services = true
+      ssl_mode                                      = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
     }
 
     insights_config {
@@ -125,7 +252,10 @@ resource "google_sql_database_instance" "postgres" {
     user_labels = local.labels
   }
 
-  depends_on = [google_project_service.required]
+  depends_on = [
+    google_project_service.required,
+    google_service_networking_connection.private_service_access,
+  ]
 }
 
 resource "google_sql_database" "app" {
@@ -170,6 +300,15 @@ resource "google_cloud_run_v2_service" "api" {
   template {
     service_account = google_service_account.runtime.email
     timeout         = "30s"
+
+    vpc_access {
+      egress = "PRIVATE_RANGES_ONLY"
+
+      network_interfaces {
+        network    = google_compute_network.application.name
+        subnetwork = google_compute_subnetwork.application.name
+      }
+    }
 
     scaling {
       min_instance_count = 0
@@ -263,6 +402,8 @@ resource "google_cloud_run_v2_service" "api" {
   }
 
   depends_on = [
+    google_compute_subnetwork.application,
+    google_service_account_iam_member.terraform_can_act_as_runtime,
     google_project_iam_member.runtime_roles,
     google_secret_manager_secret_version.database_password,
   ]
@@ -322,6 +463,8 @@ resource "google_billing_budget" "monthly" {
       spend_basis       = "CURRENT_SPEND"
     }
   }
+
+  depends_on = [google_project_service.required]
 }
 
 data "google_project" "current" {

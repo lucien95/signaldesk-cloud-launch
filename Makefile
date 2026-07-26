@@ -1,12 +1,31 @@
 PYTHON := .venv/bin/python
+SECURITY_PYTHON := .security-venv/bin/python
+OPA := .tools/bin/opa
+TRIVY := .tools/bin/trivy
+ACTIONLINT := .tools/bin/actionlint
 
-.PHONY: install test lint run docker-build up down terraform-check
+.PHONY: install test lint run docker-build up down terraform-check security-install dependency-audit actionlint-install actionlint checkov opa-install opa-test opa-eval trivy-install trivy-fs trivy-image security-check
 
 .venv/bin/python:
 	python3 -m venv .venv
 
 install: .venv/bin/python
 	$(PYTHON) -m pip install -r app/requirements-dev.txt
+
+.security-venv/bin/python:
+	python3 -m venv .security-venv
+
+security-install: .security-venv/bin/python
+	$(SECURITY_PYTHON) -m pip install -r security/requirements.txt
+
+dependency-audit: security-install
+	$(SECURITY_PYTHON) -m pip_audit -r app/requirements.txt
+
+actionlint-install:
+	./scripts/install-actionlint.sh
+
+actionlint: actionlint-install
+	$(ACTIONLINT) -color
 
 test:
 	DATABASE_URL=sqlite+pysqlite:///:memory: $(PYTHON) -m pytest -q
@@ -34,3 +53,28 @@ terraform-check:
 	terraform -chdir=terraform/bootstrap validate
 	terraform -chdir=terraform/environments/dev init -backend=false
 	terraform -chdir=terraform/environments/dev validate
+
+checkov: security-install
+	.security-venv/bin/checkov --config-file .checkov.yml
+
+opa-install:
+	./scripts/install-opa.sh
+
+opa-test: opa-install
+	$(OPA) fmt --fail --diff policy/terraform
+	$(OPA) test policy/terraform --fail-on-empty -v
+
+opa-eval: opa-install
+	@test -n "$(PLAN_JSON)" || (echo "Set PLAN_JSON to a Terraform plan JSON file" && exit 1)
+	./scripts/evaluate-terraform-policy.sh "$(PLAN_JSON)"
+
+trivy-install:
+	./scripts/install-trivy.sh
+
+trivy-fs: trivy-install
+	$(TRIVY) fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs .git --skip-dirs .terraform --skip-dirs .venv --skip-dirs .security-venv --skip-dirs .tools --skip-files "**/*.tfstate*" .
+
+trivy-image: trivy-install docker-build
+	$(TRIVY) image --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 signaldesk-api:local
+
+security-check: dependency-audit actionlint checkov opa-test trivy-fs

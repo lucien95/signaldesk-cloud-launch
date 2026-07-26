@@ -1,0 +1,4 @@
+# Broad, vendor-maintained IaC misconfiguration checks.
+# OPA and Trivy are installed as checksum-verified standalone binaries.
+checkov==3.3.8
+pip-audit==2.10.1
