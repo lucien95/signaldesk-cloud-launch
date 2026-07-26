@@ -97,6 +97,7 @@ jobs:
 
       - name: Smoke-test the candidate revision
         run: |
+          # shellcheck disable=SC2016
           CANDIDATE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
@@ -107,6 +108,7 @@ jobs:
 
       - name: Promote only the verified candidate
         run: |
+          # shellcheck disable=SC2016
           CANDIDATE_REVISION="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
