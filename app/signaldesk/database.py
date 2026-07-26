@@ -19,7 +19,9 @@ def get_database_url() -> str:
         socket = quote_plus(f"/cloudsql/{connection_name}")
         return f"postgresql+psycopg://{user}:{password}@/{database}?host={socket}"
 
-    return "sqlite+pysqlite:///./signaldesk.db"
+    # Containers run as a non-root user and keep application code read-only.
+    # /tmp is the appropriate writable location for the disposable local fallback.
+    return "sqlite+pysqlite:////tmp/signaldesk.db"
 
 
 DATABASE_URL = get_database_url()

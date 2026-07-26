@@ -1,0 +1,7 @@
+# Changes to delivery code and cloud trust boundaries require the repository owner.
+/.github/workflows/ @lucien95
+/terraform/bootstrap/ @lucien95
+/policy/ @lucien95
+
+# Default ownership keeps the portfolio repository intentionally maintained.
+* @lucien95

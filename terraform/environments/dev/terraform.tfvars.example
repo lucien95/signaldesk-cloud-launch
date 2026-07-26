@@ -2,6 +2,7 @@ project_id                   = "your-gcp-project-id"
 region                       = "us-east1"
 environment                  = "dev"
 deploy_service_account_email = "signaldesk-github-deploy@your-gcp-project-id.iam.gserviceaccount.com"
+terraform_service_account_email = "signaldesk-terraform-deploy@your-gcp-project-id.iam.gserviceaccount.com"
 billing_account_id           = ""
 monthly_budget_usd           = 10
 database_tier                = "db-f1-micro"

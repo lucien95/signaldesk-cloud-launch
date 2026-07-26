@@ -12,11 +12,8 @@ terraform {
     }
   }
 
-  # Add the GCS backend only after terraform/bootstrap has created the bucket.
-  # backend "gcs" {
-  #   bucket = "your-signaldesk-tfstate"
-  #   prefix = "signaldesk/dev"
-  # }
+  # Values are supplied by local commands or GitHub Actions after bootstrap.
+  backend "gcs" {}
 }
 
 provider "google" {

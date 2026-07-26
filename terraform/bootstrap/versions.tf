@@ -7,6 +7,7 @@ terraform {
       version = ">= 6.0, < 8.0"
     }
   }
+
 }
 
 provider "google" {

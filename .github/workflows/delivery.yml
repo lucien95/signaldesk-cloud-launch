@@ -1,0 +1,250 @@
+name: Main delivery
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signaldesk-main-delivery
+  cancel-in-progress: false
+
+jobs:
+  application_quality:
+    name: Application quality gate
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  terraform_quality:
+    name: Terraform quality gate
+    uses: ./.github/workflows/terraform.yml
+    permissions:
+      contents: read
+
+  security_quality:
+    name: DevSecOps security gate
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+
+  changes:
+    name: Select delivery paths
+    runs-on: ubuntu-latest
+    outputs:
+      application: ${{ steps.select.outputs.application }}
+      infrastructure: ${{ steps.select.outputs.infrastructure }}
+    steps:
+      - name: Check out enough history for change detection
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Select requested or changed components
+        id: select
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "application=true" >> "${GITHUB_OUTPUT}"
+            echo "infrastructure=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          CHANGED_FILES="$(git diff --name-only "${BEFORE_SHA}" "${CURRENT_SHA}")"
+          if grep -Eq '^(app/|pyproject.toml$|\.github/workflows/(ci|security|deploy|delivery)\.yml$)' <<< "${CHANGED_FILES}"; then
+            echo "application=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "application=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+          if grep -Eq '^(terraform/environments/dev/|policy/terraform/|\.checkov\.yml$|security/|scripts/(install-opa|install-trivy|evaluate-terraform-policy)\.sh$|\.github/workflows/(terraform|security|delivery)\.yml$)' <<< "${CHANGED_FILES}"; then
+            echo "infrastructure=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "infrastructure=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+  infrastructure_plan:
+    name: Create and policy-check Terraform plan
+    needs: [terraform_quality, security_quality, changes]
+    if: >-
+      needs.terraform_quality.result == 'success' &&
+      needs.security_quality.result == 'success' &&
+      needs.changes.outputs.infrastructure == 'true'
+    runs-on: ubuntu-latest
+    environment: infrastructure-plan
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_region: ${{ vars.GCP_REGION }}
+      TF_VAR_environment: dev
+      TF_VAR_deploy_service_account_email: ${{ vars.GCP_APP_DEPLOY_SERVICE_ACCOUNT }}
+      TF_VAR_terraform_service_account_email: ${{ vars.GCP_INFRA_SERVICE_ACCOUNT }}
+    outputs:
+      plan_uri: ${{ steps.publish.outputs.plan_uri }}
+      checksum_uri: ${{ steps.publish.outputs.checksum_uri }}
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+    steps:
+      - name: Check out the trusted main revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.15.8
+
+      - name: Install checksum-verified OPA
+        working-directory: ${{ github.workspace }}
+        run: ./scripts/install-opa.sh
+
+      - name: Obtain short-lived infrastructure credentials
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_INFRA_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_INFRA_SERVICE_ACCOUNT }}
+
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Initialize the locked remote state
+        run: >-
+          terraform init
+          -input=false
+          -lockfile=readonly
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="prefix=signaldesk/dev"
+
+      - name: Create a reviewable binary plan
+        run: terraform plan -lock-timeout=5m -out=tfplan
+
+      - name: Convert the plan to policy input
+        run: terraform show -json tfplan > tfplan.json
+
+      - name: Enforce SignalOps OPA policies on the real plan
+        env:
+          OPA_BINARY: ${{ github.workspace }}/.tools/bin/opa
+        working-directory: ${{ github.workspace }}
+        run: ./scripts/evaluate-terraform-policy.sh terraform/environments/dev/tfplan.json
+
+      - name: Hash the exact approved plan
+        run: sha256sum tfplan > tfplan.sha256
+
+      - name: Publish the plan to the protected state bucket
+        id: publish
+        env:
+          PLAN_PREFIX: gs://${{ vars.TF_STATE_BUCKET }}/plans/${{ github.run_id }}/${{ github.run_attempt }}
+        run: |
+          gcloud storage cp tfplan "${PLAN_PREFIX}/tfplan"
+          gcloud storage cp tfplan.sha256 "${PLAN_PREFIX}/tfplan.sha256"
+          echo "plan_uri=${PLAN_PREFIX}/tfplan" >> "${GITHUB_OUTPUT}"
+          echo "checksum_uri=${PLAN_PREFIX}/tfplan.sha256" >> "${GITHUB_OUTPUT}"
+
+  infrastructure_apply:
+    name: Approve and apply the exact Terraform plan
+    needs: [infrastructure_plan, changes]
+    if: >-
+      needs.infrastructure_plan.result == 'success' &&
+      needs.changes.outputs.infrastructure == 'true'
+    runs-on: ubuntu-latest
+    environment: infrastructure-development
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+    steps:
+      - name: Check out the planned revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.15.8
+
+      - name: Obtain short-lived infrastructure credentials
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_INFRA_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_INFRA_SERVICE_ACCOUNT }}
+
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Initialize the same locked remote state
+        run: >-
+          terraform init
+          -input=false
+          -lockfile=readonly
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="prefix=signaldesk/dev"
+
+      - name: Download the approved plan and checksum
+        run: |
+          gcloud storage cp "${{ needs.infrastructure_plan.outputs.plan_uri }}" tfplan
+          gcloud storage cp "${{ needs.infrastructure_plan.outputs.checksum_uri }}" tfplan.sha256
+
+      - name: Prove the plan has not changed
+        run: sha256sum --check tfplan.sha256
+
+      - name: Apply only the approved binary plan
+        run: terraform apply -lock-timeout=5m -auto-approve tfplan
+
+      - name: Remove short-lived plan evidence
+        if: success()
+        run: |
+          gcloud storage rm "${{ needs.infrastructure_plan.outputs.plan_uri }}"
+          gcloud storage rm "${{ needs.infrastructure_plan.outputs.checksum_uri }}"
+
+  application_deploy:
+    name: Deploy verified application
+    needs:
+      - application_quality
+      - terraform_quality
+      - security_quality
+      - changes
+      - infrastructure_plan
+      - infrastructure_apply
+    if: >-
+      always() &&
+      needs.application_quality.result == 'success' &&
+      needs.terraform_quality.result == 'success' &&
+      needs.security_quality.result == 'success' &&
+      needs.changes.outputs.application == 'true' &&
+      (
+        (
+          needs.changes.outputs.infrastructure == 'false' &&
+          needs.infrastructure_plan.result == 'skipped' &&
+          needs.infrastructure_apply.result == 'skipped'
+        ) ||
+        (
+          needs.changes.outputs.infrastructure == 'true' &&
+          needs.infrastructure_plan.result == 'success' &&
+          needs.infrastructure_apply.result == 'success'
+        )
+      )
+    uses: ./.github/workflows/deploy.yml
+    with:
+      commit_sha: ${{ github.sha }}
+    permissions:
+      contents: read
+      id-token: write

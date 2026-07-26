@@ -26,26 +26,35 @@ The company has a lean engineering team and needs:
 
 ```mermaid
 flowchart LR
-    U["Customer"] --> CR["Cloud Run: SignalDesk API"]
-    GH["GitHub Actions"] -->|"OIDC / Workload Identity Federation"| AR["Artifact Registry"]
-    AR --> CR
-    CR -->|"Unix socket"| SQL["Cloud SQL for PostgreSQL"]
+    DEV["Engineer / pull request"] --> GATES["Tests + Checkov + OPA tests + Trivy"]
+    GATES --> MAIN["Protected main branch"]
+    MAIN -->|"OIDC, no key"| WIF["GCP Workload Identity Federation"]
+    WIF --> TF["Infrastructure identity"]
+    WIF --> APP["Application identity"]
+    TF --> PLAN["Policy-checked Terraform plan"]
+    PLAN --> APPROVAL["Protected apply environment"]
+    APPROVAL --> GCP["GCP platform resources"]
+    APP --> AR["Artifact Registry image by digest"]
+    AR --> CR["Cloud Run candidate revision"]
+    CR -->|"Direct VPC egress + private IP"| SQL["Cloud SQL for PostgreSQL 18"]
     CR --> SM["Secret Manager"]
     CR --> LOG["Cloud Logging and Monitoring"]
-    BUDGET["Cloud Billing Budget"] --> ALERT["Budget notifications"]
 ```
 
 The first iteration uses the Cloud Run service URL. A global HTTPS load
-balancer, custom domain, Cloud Armor, private IP, and multi-region recovery are
-explicit production-hardening extensions rather than hidden prerequisites.
+balancer, custom domain, Cloud Armor, IAM database authentication, HA, and
+multi-region recovery remain explicit production extensions.
 
 ## Repository layout
 
 ```text
 .
-├── .github/workflows/       # Application and Terraform pipelines
+├── .github/workflows/       # PR gates, secure delivery, and deployment
 ├── app/                     # FastAPI booking service
 ├── docs/                    # Architecture, security, cost, and runbooks
+├── policy/terraform/        # SignalOps OPA/Rego plan policies and tests
+├── scripts/                 # Verified tool installers and policy gate
+├── security/                # Pinned security tooling
 ├── terraform/
 │   ├── bootstrap/           # Remote-state and CI identity prerequisites
 │   └── environments/dev/    # Deployable development environment
@@ -82,19 +91,24 @@ make install
 make test
 make lint
 make terraform-check
+make security-check
 make docker-build
+make trivy-image
 ```
 
 ## GCP deployment path
 
-1. Configure the values in `terraform/bootstrap/terraform.tfvars` and deploy
-   the state bucket and GitHub workload identity.
-2. Configure `terraform/environments/dev/terraform.tfvars`.
-3. Deploy the development infrastructure.
-4. Configure the GitHub repository variables documented in
+1. Review and locally apply `terraform/bootstrap`; it is the trust root and is
+   intentionally excluded from automatic delivery.
+2. Migrate bootstrap state into the protected state bucket it created.
+3. Create the three GitHub environments and repository variables documented in
    `docs/deployment.md`.
-5. Push to `main` to publish the image and deploy a Cloud Run revision.
-6. Execute the smoke test, rollback drill, and recovery checklist.
+4. Open a pull request and require the application, Terraform, actionlint,
+   Checkov, OPA, Trivy, and dependency gates.
+5. Merge to `main`. GitHub plans and policy-checks the development
+   infrastructure, applies the exact reviewed plan, scans the application
+   image, deploys it without traffic, smoke-tests it, and then promotes it.
+6. Execute the rollback and recovery drills and capture evidence.
 
 The Cloud Run resource ignores application image drift intentionally: Terraform
 owns the platform configuration while the application pipeline owns revision
@@ -111,14 +125,25 @@ itself is not considered completion.
 - [x] Architecture and acceptance criteria
 - [x] Local booking API and container
 - [x] Terraform foundation
-- [x] CI and deployment workflow scaffolding
+- [x] Keyless CI/CD and DevSecOps policy gates
+- [x] Private database networking and cost guardrails
+- [x] Locally validated bootstrap plan
+- [x] Apply bootstrap trust root and migrate its state
 - [ ] Deploy development environment
 - [ ] Capture rollback and alert evidence
 - [ ] Run backup/restore drill
 - [ ] Publish final portfolio case study
+
+The sanitized [bootstrap verification record](docs/evidence/bootstrap-verification.md)
+captures the reviewed plan, OPA decision, apply result, remote-state migration,
+and zero-drift check without publishing credential or billing material.
 
 ## Responsible publishing
 
 This is a reference implementation, not a client case study. Published results
 must be described as lab measurements and must not expose project numbers,
 billing identifiers, database credentials, or raw customer data.
+
+Start with [the DevSecOps walkthrough](docs/devsecops.md) to understand how the
+files and delivery stages connect. The complete deployment order is in
+[the deployment guide](docs/deployment.md).

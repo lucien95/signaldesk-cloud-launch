@@ -1,0 +1,105 @@
+name: DevSecOps security gates
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  source_and_iac:
+    name: Checkov, OPA, and Trivy filesystem
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the trusted revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install and run checksum-verified actionlint
+        run: |
+          ./scripts/install-actionlint.sh
+          .tools/bin/actionlint -color
+
+      - name: Install Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.2.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: security/requirements.txt
+
+      - name: Install Checkov
+        run: python -m pip install -r security/requirements.txt
+
+      - name: Scan IaC and GitHub Actions with Checkov
+        run: checkov --config-file .checkov.yml
+
+      - name: Install checksum-verified OPA
+        run: |
+          ./scripts/install-opa.sh
+          echo "${GITHUB_WORKSPACE}/.tools/bin" >> "${GITHUB_PATH}"
+
+      - name: Format-check and test Rego policies
+        run: |
+          opa fmt --fail --diff policy/terraform
+          opa test policy/terraform --fail-on-empty -v
+
+      - name: Install checksum-verified Trivy
+        run: |
+          ./scripts/install-trivy.sh
+          echo "${GITHUB_WORKSPACE}/.tools/bin" >> "${GITHUB_PATH}"
+
+      - name: Scan dependencies, secrets, and configuration
+        run: >-
+          trivy fs
+          --scanners vuln,secret,misconfig
+          --severity HIGH,CRITICAL
+          --ignore-unfixed
+          --exit-code 1
+          --skip-dirs .git
+          --skip-dirs .terraform
+          --skip-dirs .tools
+          --skip-files "**/*.tfstate*"
+          .
+
+  container:
+    name: Scan image and produce SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the trusted revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install checksum-verified Trivy
+        run: |
+          ./scripts/install-trivy.sh
+          echo "${GITHUB_WORKSPACE}/.tools/bin" >> "${GITHUB_PATH}"
+
+      - name: Build the candidate image locally
+        run: docker build --tag "signaldesk-api:${GITHUB_SHA}" app
+
+      - name: Block vulnerable images
+        run: >-
+          trivy image
+          --scanners vuln,secret
+          --severity HIGH,CRITICAL
+          --ignore-unfixed
+          --exit-code 1
+          "signaldesk-api:${GITHUB_SHA}"
+
+      - name: Generate a CycloneDX software bill of materials
+        run: >-
+          trivy image
+          --format cyclonedx
+          --output signaldesk-api.cdx.json
+          "signaldesk-api:${GITHUB_SHA}"
+
+      - name: Preserve the SBOM as pipeline evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signaldesk-sbom-${{ github.sha }}
+          path: signaldesk-api.cdx.json
+          if-no-files-found: error
+          retention-days: 14

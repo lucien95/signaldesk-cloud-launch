@@ -1,0 +1,17 @@
+directory:
+  - .
+framework:
+  - terraform
+  - github_actions
+  - dockerfile
+compact: true
+download-external-modules: false
+evaluate-variables: true
+quiet: true
+skip-download: true
+soft-fail: false
+skip-path:
+  - .terraform
+  - .venv
+  - .security-venv
+  - .tools

@@ -20,10 +20,18 @@ assumptions is misleading.
 - Development Cloud SQL uses a small shared-core tier and zonal availability.
 - Database disk autoscaling has an explicit upper limit.
 - Artifact Registry removes old untagged images.
+- Direct VPC egress avoids always-on connector instances.
+- Temporary Terraform plans are removed after apply and expire after one day.
+- Security evidence has short GitHub artifact retention periods.
 - A billing budget is derived from the project's billing account; an explicit
   `billing_account_id` can override it when required.
 - The default development budget alert is USD 10 per month.
 - Development resources have a documented destroy path.
+
+The USD 10 budget is an alert, not a spending cap. Cloud SQL compute continues
+to run until the instance is stopped or destroyed. Database audit settings and
+VPC flow logs improve evidence but can increase logging cost, so log volume is
+part of the seven-day review.
 
 ## Cost review worksheet
 
