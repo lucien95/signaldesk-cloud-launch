@@ -5,6 +5,7 @@ locals {
 
 resource "google_project_service" "bootstrap" {
   for_each = toset([
+    "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "sts.googleapis.com",
