@@ -238,7 +238,7 @@ resource "google_sql_database_instance" "postgres" {
 
     ip_configuration {
       ipv4_enabled                                  = false
-      private_network                               = google_compute_network.application.id
+      private_network                               = "projects/${var.project_id}/global/networks/${google_compute_network.application.name}"
       enable_private_path_for_google_cloud_services = true
       ssl_mode                                      = "TRUSTED_CLIENT_CERTIFICATE_REQUIRED"
     }
