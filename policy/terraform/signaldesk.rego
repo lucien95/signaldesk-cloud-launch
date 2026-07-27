@@ -18,6 +18,14 @@ labelled_resource_types := {
 
 required_labels := {"application", "environment", "managed_by", "owner"}
 
+enterprise_only_database_tier(tier) if {
+	tier in {"db-f1-micro", "db-g1-small"}
+}
+
+enterprise_only_database_tier(tier) if {
+	startswith(tier, "db-custom-")
+}
+
 deny contains message if {
 	some resource in input.resource_changes
 	resource.type in protected_resource_types
@@ -86,6 +94,17 @@ deny contains message if {
 	object.get(resource.change.after, "member", "") == "allUsers"
 	object.get(resource.change.after, "name", "") != "signaldesk-dev"
 	message := sprintf("%s exposes a non-development Cloud Run service publicly", [resource.address])
+}
+
+deny contains message if {
+	some resource in input.resource_changes
+	resource.type == "google_sql_database_instance"
+	resource.change.after != null
+	settings := object.get(resource.change.after, "settings", [])[0]
+	tier := object.get(settings, "tier", "")
+	enterprise_only_database_tier(tier)
+	object.get(settings, "edition", "") != "ENTERPRISE"
+	message := sprintf("%s uses Enterprise-only database tier %s and must explicitly set edition to ENTERPRISE", [resource.address, tier])
 }
 
 deny contains message if {

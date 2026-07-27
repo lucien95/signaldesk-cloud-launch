@@ -85,6 +85,34 @@ test_database_resilience_controls_denied if {
 	count(violations) == 4
 }
 
+test_enterprise_plus_shared_core_database_denied if {
+	violations := terraform.deny with input as plan([
+		change("google_sql_database_instance.postgres", "google_sql_database_instance", ["create"], {
+			"deletion_protection": false,
+			"settings": [{
+				"tier": "db-f1-micro",
+				"edition": "ENTERPRISE_PLUS",
+				"backup_configuration": [{
+					"enabled": true,
+					"point_in_time_recovery_enabled": true,
+				}],
+				"ip_configuration": [{
+					"ipv4_enabled": false,
+					"private_network": "projects/example/global/networks/signaldesk-dev",
+					"ssl_mode": "TRUSTED_CLIENT_CERTIFICATE_REQUIRED",
+				}],
+				"user_labels": {
+					"application": "signaldesk",
+					"environment": "dev",
+					"managed_by": "terraform",
+					"owner": "signalops",
+				},
+			}],
+		}),
+	])
+	violations == {"google_sql_database_instance.postgres uses Enterprise-only database tier db-f1-micro and must explicitly set edition to ENTERPRISE"}
+}
+
 test_public_database_network_denied if {
 	violations := terraform.deny with input as plan([
 		change("google_sql_database_instance.postgres", "google_sql_database_instance", ["create"], {
