@@ -82,6 +82,17 @@ deny contains message if {
 	resource.type == "google_cloud_run_v2_service"
 	resource.change.after != null
 	template := object.get(resource.change.after, "template", [])[0]
+	container := object.get(template, "containers", [])[0]
+	liveness := object.get(container, "liveness_probe", [])[0]
+	count(object.get(liveness, "tcp_socket", [])) > 0
+	message := sprintf("%s must use a supported HTTP or gRPC liveness probe instead of TCP", [resource.address])
+}
+
+deny contains message if {
+	some resource in input.resource_changes
+	resource.type == "google_cloud_run_v2_service"
+	resource.change.after != null
+	template := object.get(resource.change.after, "template", [])[0]
 	scaling := object.get(template, "scaling", [])[0]
 	object.get(scaling, "max_instance_count", 0) > 3
 	message := sprintf("%s exceeds the development cost guardrail of three instances", [resource.address])

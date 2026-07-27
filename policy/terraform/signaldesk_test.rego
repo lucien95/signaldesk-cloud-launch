@@ -49,6 +49,29 @@ test_cloud_run_cost_limit_denied if {
 	count(violations) == 1
 }
 
+test_cloud_run_tcp_liveness_denied if {
+	violations := terraform.deny with input as plan([
+		change("google_cloud_run_v2_service.api", "google_cloud_run_v2_service", ["create"], {
+			"labels": {
+				"application": "signaldesk",
+				"environment": "dev",
+				"managed_by": "terraform",
+				"owner": "signalops",
+			},
+			"template": [{
+				"service_account": "runtime@example.iam.gserviceaccount.com",
+				"scaling": [{"max_instance_count": 3}],
+				"containers": [{
+					"liveness_probe": [{
+						"tcp_socket": [{"port": 8080}],
+					}],
+				}],
+			}],
+		}),
+	])
+	violations == {"google_cloud_run_v2_service.api must use a supported HTTP or gRPC liveness probe instead of TCP"}
+}
+
 test_public_production_service_denied if {
 	violations := terraform.deny with input as plan([
 		change("google_cloud_run_v2_service_iam_member.public", "google_cloud_run_v2_service_iam_member", ["create"], {

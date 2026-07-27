@@ -379,7 +379,9 @@ resource "google_cloud_run_v2_service" "api" {
         period_seconds        = 10
         failure_threshold     = 3
 
-        tcp_socket {
+        # Both the bootstrap image and SignalDesk API serve the root path.
+        http_get {
+          path = "/"
           port = 8080
         }
       }
