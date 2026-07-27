@@ -82,6 +82,20 @@ test_public_production_service_denied if {
 	count(violations) == 1
 }
 
+test_public_development_service_names_allowed if {
+	violations := terraform.deny with input as plan([
+		change("google_cloud_run_v2_service_iam_member.public_short", "google_cloud_run_v2_service_iam_member", ["create"], {
+			"member": "allUsers",
+			"name": "signaldesk-dev",
+		}),
+		change("google_cloud_run_v2_service_iam_member.public_qualified", "google_cloud_run_v2_service_iam_member", ["no-op"], {
+			"member": "allUsers",
+			"name": "projects/example/locations/us-east1/services/signaldesk-dev",
+		}),
+	])
+	count(violations) == 0
+}
+
 test_database_resilience_controls_denied if {
 	violations := terraform.deny with input as plan([
 		change("google_sql_database_instance.postgres", "google_sql_database_instance", ["create"], {

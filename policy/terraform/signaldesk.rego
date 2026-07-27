@@ -26,6 +26,14 @@ enterprise_only_database_tier(tier) if {
 	startswith(tier, "db-custom-")
 }
 
+development_cloud_run_service(name) if {
+	name == "signaldesk-dev"
+}
+
+development_cloud_run_service(name) if {
+	endswith(name, "/services/signaldesk-dev")
+}
+
 deny contains message if {
 	some resource in input.resource_changes
 	resource.type in protected_resource_types
@@ -103,7 +111,7 @@ deny contains message if {
 	resource.type == "google_cloud_run_v2_service_iam_member"
 	resource.change.after != null
 	object.get(resource.change.after, "member", "") == "allUsers"
-	object.get(resource.change.after, "name", "") != "signaldesk-dev"
+	not development_cloud_run_service(object.get(resource.change.after, "name", ""))
 	message := sprintf("%s exposes a non-development Cloud Run service publicly", [resource.address])
 }
 
