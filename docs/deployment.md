@@ -78,11 +78,13 @@ environment claims.
 
 ## 5. Configure non-secret GitHub variables
 
-Open **Settings → Secrets and variables → Actions → Variables**. Add:
+Open **Settings → Secrets and variables → Actions → Variables**. Add these at
+repository scope so every protected environment inherits one consistent value:
 
 | Variable | Value source |
 |---|---|
 | `GCP_PROJECT_ID` | `kloudwithlucien-503200` |
+| `GCP_BILLING_ACCOUNT_ID` | billing account attached to the project |
 | `GCP_REGION` | `us-east1` |
 | `TF_STATE_BUCKET` | bootstrap output `state_bucket` |
 | `GCP_INFRA_WORKLOAD_IDENTITY_PROVIDER` | bootstrap output `infrastructure_workload_identity_provider` |
@@ -92,8 +94,10 @@ Open **Settings → Secrets and variables → Actions → Variables**. Add:
 | `GCP_ARTIFACT_REPOSITORY` | `signaldesk` |
 | `GCP_CLOUD_RUN_SERVICE` | `signaldesk-dev` |
 
-These are identifiers, not secrets. Authentication comes from a short-lived
-OIDC exchange; do not create or upload a service-account JSON key.
+These are identifiers, not secrets. Do not duplicate them inside individual
+GitHub environments because environment-level values override repository values
+and can drift. Authentication comes from a short-lived OIDC exchange; do not
+create or upload a service-account JSON key.
 
 New Workload Identity configuration can take a few minutes to propagate. If the
 first correctly configured authentication attempt is denied, wait five minutes
