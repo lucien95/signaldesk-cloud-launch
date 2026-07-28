@@ -401,7 +401,14 @@ resource "google_cloud_run_v2_service" "api" {
   }
 
   lifecycle {
-    ignore_changes = [template[0].containers[0].image]
+    # Terraform owns the service platform; the application pipeline owns the
+    # deployed image, generated revision name, and client metadata.
+    ignore_changes = [
+      client,
+      client_version,
+      template[0].revision,
+      template[0].containers[0].image,
+    ]
   }
 
   depends_on = [
