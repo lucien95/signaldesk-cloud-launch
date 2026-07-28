@@ -6,19 +6,29 @@
 
 ## Verified implementation status
 
-The trust bootstrap was applied and verified on 2026-07-26. Its saved plan
-contained 29 additions with no changes or deletions, the custom OPA gate
-returned no denials, and the exact binary plan applied successfully. State was
-migrated from the temporary local backend to a private, versioned GCS backend;
-a post-migration refresh reported no drift. No long-lived service-account key
-was created.
+The trust bootstrap was applied on 2026-07-26. Its saved plan contained 29
+additions with no changes or deletions, the custom OPA gate returned no denials,
+and the exact binary plan applied successfully. State was migrated from the
+temporary local backend to a private, versioned GCS backend.
 
-The public case study must distinguish that verified milestone from the next
-one. Development Cloud Run, Cloud SQL, Artifact Registry, networking, secrets,
-monitoring, and application promotion are designed and validated in source but
-are not described as deployed until the protected GitHub delivery and runtime
-acceptance tests complete. See the sanitized
-[bootstrap verification record](evidence/bootstrap-verification.md).
+The development platform and application were deployed and verified on
+2026-07-27. GitHub Actions built and scanned one image, generated a CycloneDX
+SBOM, authenticated to GCP with OIDC, pushed the image, resolved its SHA-256
+digest, deployed a zero-traffic candidate, tested database-backed readiness,
+promoted the verified revision, and tested the public service. A synthetic
+booking was then created, retrieved, and updated through the live API, and its
+request ID was correlated in Cloud Logging.
+
+A subsequent Terraform 1.15.8 run reported **No changes**. OPA passed the real
+plan, the apply job verified the saved plan checksum, and Terraform completed
+with zero additions, changes, or deletions. Both CI service accounts have zero
+user-managed keys. See the sanitized
+[bootstrap verification record](evidence/bootstrap-verification.md) and
+[deployment verification record](evidence/deployment-verification.md).
+
+Rollback, failure-injection alerting, backup restoration, load measurement,
+and final teardown remain explicit follow-up drills; this case study does not
+claim those tests are complete.
 
 ## Business problem and target client
 
@@ -59,7 +69,8 @@ trust root; `environments/dev` is the repeatable delivery target. Both use
 locked providers. State is versioned and private in GCS. The delivery pipeline
 converts a saved plan to JSON for OPA, stores the hashed binary plan, and applies
 only that approved artifact. Terraform owns platform configuration while the
-application workflow owns the Cloud Run image field.
+application workflow owns the image, generated revision, and release-client
+metadata.
 
 ## Security and DevSecOps
 
@@ -92,12 +103,15 @@ study explicitly states that a budget is not a hard cap.
 
 - Architecture and trust-flow diagrams.
 - Deployable Terraform and policy unit tests.
-- GitHub Actions run showing every security gate.
-- Sanitized Terraform plan/apply and WIF audit evidence.
-- CycloneDX SBOM and clean image scan.
-- Cloud Run candidate/promotion and timed rollback evidence.
-- Uptime, request-log correlation, budget, backup, and restore screenshots.
+- GitHub Actions runs showing every security and deployment gate.
+- Sanitized Terraform plan/apply and zero-key identity evidence.
+- CycloneDX SBOM, clean image scan, and immutable deployed digest.
+- Cloud Run candidate/promotion and live API acceptance evidence.
+- Uptime, request-log correlation, and budget evidence.
 - Cost assumptions, limitations, and teardown record.
+
+Timed rollback, alert notification, database restore, load test, and teardown
+records are still pending and are not represented as completed deliverables.
 
 ## Portfolio angle
 
@@ -107,6 +121,13 @@ and Direct VPC egress. Then show how custom OPA rules capture business policies
 that generic tools cannot know, such as the three-instance cost ceiling and the
 rule that only the development service may be public. This demonstrates
 engineering judgment, not merely tool installation.
+
+The implementation story is equally valuable: real delivery surfaced a Cloud
+SQL edition/tier mismatch, a Cloud Run probe incompatibility, normalized
+resource names in Terraform plans, a nested `gcloud` formatting trap, and a
+shared-ownership drift boundary between Terraform and application deployment.
+Each issue was diagnosed from evidence, fixed in a focused pull request, gated,
+and re-verified in the live environment.
 
 ## SignalOps service mapping
 

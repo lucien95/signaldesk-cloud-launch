@@ -17,8 +17,11 @@ explicit production upgrade based on the client's recovery requirements.
 
 Terraform owns APIs, IAM, Artifact Registry, Cloud SQL, Secret Manager, Cloud
 Run configuration, monitoring, and budgets. The deployment workflow owns the
-Cloud Run container image and revision promotion. Terraform ignores image drift
-to prevent the two delivery paths from fighting each other.
+Cloud Run container image and revision promotion. Terraform ignores the image,
+generated revision name, and deployment-client metadata to prevent the two
+delivery paths from fighting each other. Networking, identity, scaling, probes,
+resources, secrets, and service exposure remain Terraform-owned and
+drift-detected.
 
 ## Private data path
 

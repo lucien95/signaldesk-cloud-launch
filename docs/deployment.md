@@ -7,7 +7,9 @@ Run commands from the repository root. Read the plan before every apply.
 
 The bootstrap operator is a human project owner. Application Default
 Credentials let Terraform use that identity without placing a credential in
-the repository.
+the repository. The development provider also explicitly attributes quota and
+billing API requests to the managed project; this avoids depending on whichever
+project a workstation credential originally came from.
 
 ```bash
 gcloud config get-value account
@@ -36,6 +38,10 @@ make opa-eval PLAN_JSON=/tmp/signaldesk-bootstrap-plan.json
 The expected initial summary is additions only, with no changes or deletions.
 `bootstrap.tfplan` is a binary plan: applying that file prevents a surprise
 re-plan between review and execution.
+
+Use the Terraform version pinned in GitHub Actions when reproducing delivery
+plans locally. Older valid Terraform releases can decode provider state
+differently and are not the authoritative release toolchain.
 
 ## 3. Apply once, then migrate bootstrap state
 
