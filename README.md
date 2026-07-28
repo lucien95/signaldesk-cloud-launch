@@ -110,9 +110,9 @@ make trivy-image
    image, deploys it without traffic, smoke-tests it, and then promotes it.
 6. Execute the rollback and recovery drills and capture evidence.
 
-The Cloud Run resource ignores application image drift intentionally: Terraform
-owns the platform configuration while the application pipeline owns revision
-promotion.
+The Cloud Run resource ignores the application image and release-generated
+revision/client metadata intentionally: Terraform owns the platform
+configuration while the application pipeline owns immutable image promotion.
 
 ## Definition of done
 
@@ -129,14 +129,20 @@ itself is not considered completion.
 - [x] Private database networking and cost guardrails
 - [x] Locally validated bootstrap plan
 - [x] Apply bootstrap trust root and migrate its state
-- [ ] Deploy development environment
+- [x] Deploy development environment and application
+- [x] Capture runtime, keyless delivery, and zero-drift evidence
 - [ ] Capture rollback and alert evidence
 - [ ] Run backup/restore drill
-- [ ] Publish final portfolio case study
+- [x] Publish the repository case study
+- [ ] Publish the case study on the SignalOps website
 
 The sanitized [bootstrap verification record](docs/evidence/bootstrap-verification.md)
 captures the reviewed plan, OPA decision, apply result, remote-state migration,
-and zero-drift check without publishing credential or billing material.
+and zero-drift check without publishing credential or billing material. The
+[deployment verification record](docs/evidence/deployment-verification.md)
+captures the promoted application, immutable image, private database path,
+keyless identities, acceptance test, correlated log, cost controls, and final
+no-change Terraform run.
 
 ## Responsible publishing
 

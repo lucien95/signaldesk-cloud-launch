@@ -6,26 +6,30 @@ private evidence folder before selecting material for public use.
 
 The first sanitized proof asset is the
 [bootstrap verification record](evidence/bootstrap-verification.md). It proves
-the trust root and remote-state milestone; it does not substitute for the
-remaining runtime, delivery, rollback, alert, recovery, and cost evidence.
+the trust root and remote-state milestone. The
+[deployment verification record](evidence/deployment-verification.md) proves
+the runtime, delivery, database, observability, identity, cost, and final
+zero-drift milestones. Operational drills that remain incomplete are marked
+honestly below.
 
-| Capability | Acceptance test | Evidence |
-|---|---|---|
-| Application | Create, retrieve, and update a booking | API test output and demo recording |
-| Infrastructure | Recreate dev from Terraform | Successful plan/apply summary |
-| Keyless CI/CD | GitHub deploys without a service-account JSON key | Workflow permissions and WIF audit log |
-| Policy as code | A deliberately insecure plan fails before apply | OPA unit-test output and failed plan gate |
-| IaC security | Checkov reports no unexplained failures | Checkov summary and inline exception review |
-| Supply chain | Image is scanned and identified by digest | Trivy result, SBOM artifact, and deployed digest |
-| Release safety | Deploy a bad revision without sending production traffic | Cloud Run revision and traffic screenshots |
-| Rollback | Restore the previous revision within 10 minutes | Timed rollback drill |
-| Availability | Liveness and readiness failures are distinguishable | Health endpoint tests and logs |
-| Observability | One request can be followed by request ID | Correlated request and application logs |
-| Alerting | A controlled 5xx event reaches the configured channel | Alert incident screenshot |
-| Recovery | Restore a backup to a new database instance | Restore log and validation query |
-| Security | Public exposure and IAM are documented and reviewed | Threat model and IAM matrix |
-| Cost | Budget exists and all recurring resources are itemized | Budget screenshot and cost model |
-| Teardown | Dev resources can be destroyed without orphaned resources | Destroy output and inventory check |
+| Capability | Acceptance test | Status | Evidence |
+|---|---|---|---|
+| Application | Create, retrieve, and update a booking | Verified | Synthetic live API test and deployment record |
+| Infrastructure | Reconcile dev from Terraform | Verified | No-change plan, OPA pass, checksum verification, and no-op apply |
+| Keyless CI/CD | GitHub deploys without a service-account JSON key | Verified | OIDC workflow and zero user-managed keys on both CI identities |
+| Policy as code | A deliberately insecure plan fails before apply | Verified | Ten OPA unit tests and real-plan policy gate |
+| IaC security | Checkov reports no unexplained failures | Verified | 514 passed, zero failed, three documented skips |
+| Supply chain | Image is scanned and identified by digest | Verified | Trivy gates, CycloneDX SBOM artifact, and deployed SHA-256 digest |
+| Release safety | Verify a zero-traffic candidate before promotion | Verified | Candidate smoke test and post-promotion public check |
+| Failure safety | Reject a bad candidate without moving traffic | Pending drill | Failed-candidate traffic evidence |
+| Rollback | Restore the previous revision within 10 minutes | Pending drill | Timed rollback record |
+| Availability | Liveness and readiness failures are distinguishable | Verified | Public health tests and database-backed readiness |
+| Observability | One request can be followed by request ID | Verified | Correlated HTTP 201 structured log on the serving revision |
+| Alerting | A controlled 5xx event reaches the configured channel | Pending drill | Alert incident screenshot |
+| Recovery | Restore a backup to a new database instance | Pending drill | Restore log and validation query |
+| Security | Public exposure and IAM are documented and reviewed | Verified | Security model, private database path, and dedicated identities |
+| Cost | Budget exists and all recurring resources are itemized | Verified | USD 10 budget thresholds and cost model |
+| Teardown | Dev resources can be destroyed without orphaned resources | Pending final teardown | Destroy output and inventory check |
 
 ## Portfolio measurements
 
