@@ -97,22 +97,22 @@ jobs:
 
       - name: Smoke-test the candidate revision
         run: |
-          # shellcheck disable=SC2016
           CANDIDATE_URL="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
-            --format='value(status.traffic[?tag==`candidate`].url)')"
+            --format=json | \
+            jq -r '.status.traffic[] | select(.tag == "candidate") | .url')"
           test -n "${CANDIDATE_URL}"
           curl --fail --silent --show-error --retry 5 --retry-all-errors \
             "${CANDIDATE_URL}/health/ready"
 
       - name: Promote only the verified candidate
         run: |
-          # shellcheck disable=SC2016
           CANDIDATE_REVISION="$(gcloud run services describe "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
-            --format='value(status.traffic[?tag==`candidate`].revisionName)')"
+            --format=json | \
+            jq -r '.status.traffic[] | select(.tag == "candidate") | .revisionName')"
           test -n "${CANDIDATE_REVISION}"
           gcloud run services update-traffic "${{ vars.GCP_CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
