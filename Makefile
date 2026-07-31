@@ -4,13 +4,25 @@ OPA := .tools/bin/opa
 TRIVY := .tools/bin/trivy
 ACTIONLINT := .tools/bin/actionlint
 
-.PHONY: install test lint run docker-build up down terraform-check security-install dependency-audit actionlint-install actionlint checkov opa-install opa-test opa-eval trivy-install trivy-fs trivy-image security-check
+.PHONY: install frontend-install frontend-check frontend-e2e test lint run docker-build up down terraform-check security-install dependency-audit actionlint-install actionlint checkov opa-install opa-test opa-eval trivy-install trivy-fs trivy-image security-check
 
 .venv/bin/python:
 	python3 -m venv .venv
 
 install: .venv/bin/python
 	$(PYTHON) -m pip install -r app/requirements-dev.txt
+
+frontend-install:
+	npm ci --prefix app/frontend
+
+frontend-check: frontend-install
+	npm --prefix app/frontend run lint
+	npm --prefix app/frontend run test
+	npm --prefix app/frontend run build
+
+frontend-e2e: install frontend-check
+	cd app/frontend && npx playwright install chromium
+	PYTHON_BIN=$(abspath $(PYTHON)) npm --prefix app/frontend run test:e2e
 
 .security-venv/bin/python:
 	python3 -m venv .security-venv

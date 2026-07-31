@@ -13,6 +13,37 @@ PostgreSQL tooling. A managed database provides automated backups and a clear
 recovery path. The development environment is zonal; high availability is an
 explicit production upgrade based on the client's recovery requirements.
 
+## Application runtime
+
+The production image is built in three stages. Node compiles the Next.js
+interface to static files, Python installs only backend production packages,
+and the final non-root Python image receives both outputs. FastAPI serves the
+static interface at `/` and the JSON API under `/api/v1`, so the browser uses a
+single Cloud Run origin and does not require CORS or a second always-on service.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant R as Cloud Run revision
+    participant A as FastAPI
+    participant D as Private Cloud SQL
+    B->>R: GET / (Next.js static export)
+    B->>A: GET /api/v1/availability
+    A->>D: Query occupied slots
+    D-->>A: Existing bookings
+    A-->>B: Available Eastern-time slots
+    B->>A: POST /api/v1/bookings + request ID
+    A->>D: Validate and persist booking
+    D-->>A: Committed booking
+    A-->>B: 201 + booking + correlated request ID
+```
+
+Cloud Run's runtime service account authorizes access to Secret Manager and the
+Cloud SQL instance. It does not replace the PostgreSQL login: the application
+reads the database password from its injected secret and uses the private Unix
+socket created by the Cloud SQL integration. Each HTTP response carries a
+request ID that is also written to structured Cloud Logging.
+
 ## Infrastructure and application ownership
 
 Terraform owns APIs, IAM, Artifact Registry, Cloud SQL, Secret Manager, Cloud
@@ -53,6 +84,8 @@ Normal delivery uses separate Workload Identity pools and service accounts:
 - Private Cloud SQL address reached through Direct VPC egress.
 - Zonal development database.
 - Password authentication with the password held in Secret Manager.
+- A public, synthetic-data operations board for demonstration; staff identity
+  and role-based authorization are required before real customer use.
 
 These constraints keep the lab affordable and buildable. The production design
 review must consider IAM database authentication, HA, custom domain, Cloud

@@ -11,7 +11,9 @@ guardrails in one deployable project.
 
 ## Business scenario
 
-SignalDesk is a fictional appointment API for a small field-services company.
+SignalDesk is a fictional end-to-end booking application for a small
+field-services company. Customers select a live service slot and operations
+staff can search, filter, complete, or cancel the resulting booking.
 The company has a lean engineering team and needs:
 
 - a secure production launch on GCP;
@@ -26,6 +28,7 @@ The company has a lean engineering team and needs:
 
 ```mermaid
 flowchart LR
+    CUSTOMER["Customer or operator browser"] --> CR
     DEV["Engineer / pull request"] --> GATES["Tests + Checkov + OPA tests + Trivy"]
     GATES --> MAIN["Protected main branch"]
     MAIN -->|"OIDC, no key"| WIF["GCP Workload Identity Federation"]
@@ -35,7 +38,7 @@ flowchart LR
     PLAN --> APPROVAL["Protected apply environment"]
     APPROVAL --> GCP["GCP platform resources"]
     APP --> AR["Artifact Registry image by digest"]
-    AR --> CR["Cloud Run candidate revision"]
+    AR --> CR["Cloud Run: Next.js UI + FastAPI"]
     CR -->|"Direct VPC egress + private IP"| SQL["Cloud SQL for PostgreSQL 18"]
     CR --> SM["Secret Manager"]
     CR --> LOG["Cloud Logging and Monitoring"]
@@ -50,7 +53,9 @@ multi-region recovery remain explicit production extensions.
 ```text
 .
 ├── .github/workflows/       # PR gates, secure delivery, and deployment
-├── app/                     # FastAPI booking service
+├── app/
+│   ├── frontend/            # Next.js customer and operations interface
+│   └── signaldesk/          # FastAPI API and packaged static frontend
 ├── docs/                    # Architecture, security, cost, and runbooks
 ├── policy/terraform/        # SignalOps OPA/Rego plan policies and tests
 ├── scripts/                 # Verified tool installers and policy gate
@@ -71,7 +76,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Verify the service:
+Open `http://localhost:8080` to use the booking application. Verify the API
+directly when troubleshooting:
 
 ```bash
 curl http://localhost:8080/health/live
@@ -90,6 +96,8 @@ Interactive API documentation is available at
 make install
 make test
 make lint
+make frontend-check
+make frontend-e2e
 make terraform-check
 make security-check
 make docker-build
@@ -124,6 +132,8 @@ itself is not considered completion.
 
 - [x] Architecture and acceptance criteria
 - [x] Local booking API and container
+- [x] Responsive customer booking and operations interface
+- [x] Desktop and mobile end-to-end browser journeys
 - [x] Terraform foundation
 - [x] Keyless CI/CD and DevSecOps policy gates
 - [x] Private database networking and cost guardrails
@@ -150,6 +160,13 @@ This is a reference implementation, not a client case study. Published results
 must be described as lab measurements and must not expose project numbers,
 billing identifiers, database credentials, or raw customer data.
 
+The development operations board intentionally uses synthetic records and is
+not protected by staff identity. Before using the pattern with real customer
+data, add an application identity provider and role-based authorization for all
+booking-list and booking-update routes. This constraint is visible in the UI
+and documented in [the application guide](docs/application.md).
+
 Start with [the DevSecOps walkthrough](docs/devsecops.md) to understand how the
 files and delivery stages connect. The complete deployment order is in
-[the deployment guide](docs/deployment.md).
+[the deployment guide](docs/deployment.md), and the browser-to-database flow is
+in [the application guide](docs/application.md).
