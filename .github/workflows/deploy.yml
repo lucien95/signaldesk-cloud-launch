@@ -105,6 +105,12 @@ jobs:
           test -n "${CANDIDATE_URL}"
           curl --fail --silent --show-error --retry 5 --retry-all-errors \
             "${CANDIDATE_URL}/health/ready"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "${CANDIDATE_URL}/api/v1/services" > /tmp/candidate-services.json
+          jq -e 'length == 3' /tmp/candidate-services.json
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "${CANDIDATE_URL}/" > /tmp/candidate.html
+          grep -Fq "Schedule the work. Keep every promise." /tmp/candidate.html
 
       - name: Promote only the verified candidate
         run: |
@@ -128,3 +134,6 @@ jobs:
             --format='value(status.url)')"
           curl --fail --silent --show-error --retry 5 --retry-all-errors \
             "${SERVICE_URL}/health/ready"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "${SERVICE_URL}/" > /tmp/promoted.html
+          grep -Fq "Schedule the work. Keep every promise." /tmp/promoted.html

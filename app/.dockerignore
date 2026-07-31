@@ -1,0 +1,7 @@
+frontend/.next
+frontend/node_modules
+frontend/out
+frontend/playwright-report
+frontend/test-results
+signaldesk/__pycache__
+tests/__pycache__

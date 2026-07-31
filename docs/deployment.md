@@ -134,7 +134,8 @@ separation of duties should use a reviewer other than the change author.
 Pull requests run quality and security checks without cloud write credentials.
 After merge, `.github/workflows/delivery.yml`:
 
-1. repeats all quality gates on the trusted `main` commit;
+1. repeats all quality gates on the trusted `main` commit, including desktop
+   and mobile browser journeys that create and complete a booking;
 2. detects whether application or development infrastructure changed;
 3. exchanges GitHub OIDC for a short-lived infrastructure credential;
 4. creates a binary Terraform plan and evaluates its JSON with OPA;

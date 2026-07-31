@@ -1,3 +1,13 @@
+FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS frontend-builder
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend ./
+RUN npm run build
+
 FROM python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de AS builder
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -19,6 +29,7 @@ WORKDIR /app
 
 COPY --from=builder /install /usr/local
 COPY signaldesk ./signaldesk
+COPY --from=frontend-builder /frontend/out ./signaldesk/static
 
 USER appuser
 EXPOSE 8080
