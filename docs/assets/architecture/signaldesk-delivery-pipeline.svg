@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">SignalDesk keyless GitHub Actions delivery architecture</title>
+  <desc id="desc">A pull request runs application, Terraform, and security checks. A protected merge to main starts a path-aware delivery workflow. Infrastructure changes use a separate workload identity, policy-check and hash a binary Terraform plan, require environment approval, and apply the exact plan. Application changes build once, scan the image, generate an SBOM, use a separate workload identity, publish by digest, deploy a zero-traffic Cloud Run candidate, smoke test it, and promote it to 100 percent.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071a2c"/><stop offset="1" stop-color="#103955"/></linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#effbf4"/><stop offset="1" stop-color="#d9f3e5"/></linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff9e8"/><stop offset="1" stop-color="#ffefc5"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecf7ff"/><stop offset="1" stop-color="#d8edff"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#00111f" flood-opacity=".2"/></filter>
+    <marker id="aBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 10 5 0 10z" fill="#438be3"/></marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 10 5 0 10z" fill="#22a06b"/></marker>
+    <marker id="aAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 10 5 0 10z" fill="#d98a00"/></marker>
+    <style>
+      .h1{font:700 38px Inter,ui-sans-serif,system-ui,sans-serif;fill:#fff}.sub{font:400 19px Inter,ui-sans-serif,system-ui,sans-serif;fill:#bfd5e6}.lane{font:700 17px Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:2px;fill:#8dc0e5}
+      .title{font:700 20px Inter,ui-sans-serif,system-ui,sans-serif;fill:#122d43}.copy{font:500 15px Inter,ui-sans-serif,system-ui,sans-serif;fill:#40586c}.small{font:600 13px Inter,ui-sans-serif,system-ui,sans-serif;fill:#5a7184}.footer{font:600 13px Inter,ui-sans-serif,system-ui,sans-serif;fill:#c6dceb}.num{font:700 16px Inter,ui-sans-serif,system-ui,sans-serif;fill:#fff}.label{font:700 13px Inter,ui-sans-serif,system-ui,sans-serif;fill:#d9ebf8;paint-order:stroke;stroke:#0c2b44;stroke-width:6px;stroke-linejoin:round}
+      .boundary{fill:#fff;fill-opacity:.035;stroke:#76b0d9;stroke-width:2;stroke-dasharray:10 8}.laneBox{fill:#fff;fill-opacity:.028;stroke:#557b98;stroke-width:1.5}.box{stroke-width:2;rx:16;filter:url(#shadow)}.g{fill:url(#green);stroke:#55bd89}.a{fill:url(#amber);stroke:#e5aa2b}.b{fill:url(#blue);stroke:#5ca4eb}.n{fill:#f4f7fa;stroke:#a7bac9}
+      .blueLine{fill:none;stroke:#438be3;stroke-width:4;marker-end:url(#aBlue)}.greenLine{fill:none;stroke:#22a06b;stroke-width:4;marker-end:url(#aGreen)}.amberLine{fill:none;stroke:#d98a00;stroke-width:4;marker-end:url(#aAmber)}.dash{stroke-dasharray:9 7}
+    </style>
+  </defs>
+  <rect width="1800" height="1200" fill="url(#bg)"/>
+  <text x="65" y="67" class="h1">SignalDesk — GitHub Actions, identity, and verified delivery</text>
+  <text x="65" y="103" class="sub">Pull requests prove safety. Protected main delivery uses separate short-lived identities for infrastructure and application mutation.</text>
+
+  <text x="65" y="165" class="lane">1 · PULL REQUEST — READ-ONLY EVIDENCE</text>
+  <rect x="60" y="195" width="210" height="120" class="box n"/>
+  <text x="165" y="238" text-anchor="middle" class="title">Developer change</text>
+  <text x="165" y="270" text-anchor="middle" class="copy">Feature branch or</text><text x="165" y="294" text-anchor="middle" class="copy">Dependabot update</text>
+
+  <rect x="340" y="175" width="260" height="95" class="box b"/>
+  <text x="470" y="212" text-anchor="middle" class="title">Application quality</text>
+  <text x="470" y="242" text-anchor="middle" class="small">Ruff · Bandit · Pytest · ESLint · Vitest</text>
+  <rect x="340" y="285" width="260" height="95" class="box b"/>
+  <text x="470" y="322" text-anchor="middle" class="title">Terraform quality</text>
+  <text x="470" y="352" text-anchor="middle" class="small">fmt · validate · actionlint</text>
+  <rect x="340" y="395" width="260" height="95" class="box b"/>
+  <text x="470" y="432" text-anchor="middle" class="title">DevSecOps gates</text>
+  <text x="470" y="462" text-anchor="middle" class="small">Checkov · OPA · Trivy · audits · SBOM</text>
+
+  <rect x="680" y="255" width="235" height="140" class="box g"/>
+  <text x="797" y="298" text-anchor="middle" class="title">Required checks</text>
+  <text x="797" y="331" text-anchor="middle" class="copy">All gates must pass</text>
+  <text x="797" y="359" text-anchor="middle" class="small">before protected merge</text>
+
+  <rect x="995" y="255" width="250" height="140" class="box n"/>
+  <text x="1120" y="298" text-anchor="middle" class="title">Protected main</text>
+  <text x="1120" y="331" text-anchor="middle" class="copy">Trusted commit</text>
+  <text x="1120" y="359" text-anchor="middle" class="small">starts Main delivery</text>
+
+  <rect x="1325" y="255" width="355" height="140" class="box a"/>
+  <text x="1502" y="298" text-anchor="middle" class="title">Path-aware orchestrator</text>
+  <text x="1502" y="331" text-anchor="middle" class="copy">Repeat gates on trusted commit</text>
+  <text x="1502" y="359" text-anchor="middle" class="small">Select infrastructure, application, or both</text>
+
+  <path d="M270 255H340" class="blueLine"/><path d="M270 255C305 255 305 332 340 332" class="blueLine"/><path d="M270 255C305 255 305 442 340 442" class="blueLine"/>
+  <path d="M600 222C640 222 640 290 680 305" class="greenLine"/><path d="M600 332H680" class="greenLine"/><path d="M600 442C640 442 640 365 680 345" class="greenLine"/>
+  <path d="M915 325H995" class="greenLine"/><path d="M1245 325H1325" class="amberLine"/>
+
+  <rect x="40" y="540" width="1720" height="600" rx="28" class="boundary"/>
+  <text x="75" y="580" class="lane">2 · MAIN DELIVERY — MUTATING, KEYLESS, AND ENVIRONMENT-PROTECTED</text>
+
+  <rect x="75" y="610" width="805" height="485" rx="22" class="laneBox"/>
+  <text x="105" y="648" class="lane">INFRASTRUCTURE LANE</text>
+  <rect x="105" y="680" width="200" height="115" class="box g"/>
+  <text x="205" y="720" text-anchor="middle" class="title">Infra WIF provider</text>
+  <text x="205" y="750" text-anchor="middle" class="copy">OIDC claim checks</text>
+  <text x="205" y="775" text-anchor="middle" class="small">main · workflow · environment</text>
+  <rect x="365" y="680" width="200" height="115" class="box g"/>
+  <text x="465" y="720" text-anchor="middle" class="title">Infra service account</text>
+  <text x="465" y="750" text-anchor="middle" class="copy">Short-lived credentials</text>
+  <text x="465" y="775" text-anchor="middle" class="small">No JSON key</text>
+  <rect x="625" y="680" width="220" height="115" class="box a"/>
+  <text x="735" y="720" text-anchor="middle" class="title">Binary Terraform plan</text>
+  <text x="735" y="750" text-anchor="middle" class="copy">Real plan → JSON → OPA</text>
+  <text x="735" y="775" text-anchor="middle" class="small">SHA-256 checksum</text>
+
+  <rect x="105" y="870" width="200" height="115" class="box n"/>
+  <text x="205" y="910" text-anchor="middle" class="title">Protected GCS</text>
+  <text x="205" y="940" text-anchor="middle" class="copy">Plan + checksum</text>
+  <text x="205" y="965" text-anchor="middle" class="small">Versioned remote state</text>
+  <rect x="365" y="870" width="200" height="115" class="box a"/>
+  <text x="465" y="910" text-anchor="middle" class="title">Environment approval</text>
+  <text x="465" y="940" text-anchor="middle" class="copy">Infrastructure apply</text>
+  <text x="465" y="965" text-anchor="middle" class="small">Human control point</text>
+  <rect x="625" y="870" width="220" height="115" class="box b"/>
+  <text x="735" y="910" text-anchor="middle" class="title">Exact-plan apply</text>
+  <text x="735" y="940" text-anchor="middle" class="copy">Verify checksum first</text>
+  <text x="735" y="965" text-anchor="middle" class="small">Network · IAM · SQL · Run controls</text>
+
+  <path d="M305 737H365" class="greenLine"/><path d="M565 737H625" class="amberLine"/>
+  <path d="M735 795C735 830 205 830 205 870" class="amberLine"/><path d="M305 927H365" class="amberLine"/><path d="M565 927H625" class="blueLine"/>
+
+  <rect x="920" y="610" width="805" height="485" rx="22" class="laneBox"/>
+  <text x="950" y="648" class="lane">APPLICATION LANE</text>
+  <rect x="950" y="680" width="200" height="115" class="box a"/>
+  <text x="1050" y="720" text-anchor="middle" class="title">Build once</text>
+  <text x="1050" y="750" text-anchor="middle" class="copy">Multi-stage container</text>
+  <text x="1050" y="775" text-anchor="middle" class="small">Trivy scan · CycloneDX SBOM</text>
+  <rect x="1210" y="680" width="200" height="115" class="box g"/>
+  <text x="1310" y="720" text-anchor="middle" class="title">App WIF provider</text>
+  <text x="1310" y="750" text-anchor="middle" class="copy">Dedicated trust policy</text>
+  <text x="1310" y="775" text-anchor="middle" class="small">development environment</text>
+  <rect x="1470" y="680" width="220" height="115" class="box g"/>
+  <text x="1580" y="720" text-anchor="middle" class="title">App deploy identity</text>
+  <text x="1580" y="750" text-anchor="middle" class="copy">Push + deploy only</text>
+  <text x="1580" y="775" text-anchor="middle" class="small">Short-lived credentials</text>
+
+  <rect x="950" y="870" width="200" height="115" class="box n"/>
+  <text x="1050" y="910" text-anchor="middle" class="title">Artifact Registry</text>
+  <text x="1050" y="940" text-anchor="middle" class="copy">Resolve immutable digest</text>
+  <text x="1050" y="965" text-anchor="middle" class="small">Scanned release evidence</text>
+  <rect x="1210" y="870" width="200" height="115" class="box b"/>
+  <text x="1310" y="910" text-anchor="middle" class="title">0% candidate</text>
+  <text x="1310" y="940" text-anchor="middle" class="copy">New Cloud Run revision</text>
+  <text x="1310" y="965" text-anchor="middle" class="small">Existing traffic unchanged</text>
+  <rect x="1470" y="870" width="220" height="115" class="box b"/>
+  <text x="1580" y="910" text-anchor="middle" class="title">Smoke test + promote</text>
+  <text x="1580" y="940" text-anchor="middle" class="copy">Readiness · API · UI</text>
+  <text x="1580" y="965" text-anchor="middle" class="small">Only passing candidate gets 100%</text>
+
+  <path d="M1150 737H1210" class="amberLine"/><text x="1180" y="718" text-anchor="middle" class="label">OIDC</text><path d="M1410 737H1470" class="greenLine"/>
+  <path d="M1580 795C1580 830 1050 830 1050 870" class="amberLine"/><path d="M1150 927H1210" class="blueLine"/><path d="M1410 927H1470" class="blueLine"/>
+
+  <path d="M1502 395V515H205V680" class="amberLine dash"/><text x="850" y="506" text-anchor="middle" class="label">infrastructure changes</text>
+  <path d="M1502 395V515H1050V680" class="amberLine dash"/><text x="1275" y="506" text-anchor="middle" class="label">application changes</text>
+
+  <rect x="60" y="1155" width="1680" height="28" rx="10" fill="#fff" fill-opacity=".055"/>
+  <text x="900" y="1175" text-anchor="middle" class="footer">Bootstrap is a one-time local trust root: it creates the state bucket, federation, and CI service accounts; routine delivery cannot silently recreate its own identity boundary.</text>
+</svg>

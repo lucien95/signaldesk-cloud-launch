@@ -2,6 +2,7 @@
 .env
 .venv/
 .security-venv/
+docs/assets/screenshots/raw/
 .tools/
 __pycache__/
 .pytest_cache/

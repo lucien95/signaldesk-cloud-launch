@@ -1,6 +1,7 @@
 # Deployment verification record
 
-Verified on 2026-07-27 in `us-east1`. GitHub timestamps in linked runs are UTC.
+Initially verified on 2026-07-27 and re-verified after the full-stack release
+on 2026-07-31 in `us-east1`. GitHub timestamps in linked runs are UTC.
 This record intentionally excludes billing-account identifiers, project
 numbers, credentials, secret values, raw state, and non-synthetic user data.
 
@@ -15,8 +16,29 @@ The successful application delivery is recorded in
 [Main delivery run 30317964082](https://github.com/lucien95/signaldesk-cloud-launch/actions/runs/30317964082).
 The final infrastructure reconciliation is recorded in
 [Main delivery run 30318924512](https://github.com/lucien95/signaldesk-cloud-launch/actions/runs/30318924512).
+The full-stack booking interface release is recorded in
+[Main delivery run 30669346499](https://github.com/lucien95/signaldesk-cloud-launch/actions/runs/30669346499).
 
-## Release evidence
+## Current full-stack release
+
+- Serving revision: `signaldesk-dev-00005-nik`.
+- Production traffic: 100% to the serving revision.
+- Deployed image digest:
+  `sha256:addccfd244f9c119a544b303afe669e1126038c1baefdcb0fe12913530f79a52`.
+- The trusted `main` commit is
+  `853500273f674daa0e97f5737eed15d92754abdf`.
+- The release packages the statically exported Next.js customer/operations
+  interface and the FastAPI API into the same non-root container.
+- Pull-request and main-delivery evidence includes backend tests, frontend
+  lint/unit/build checks, desktop and mobile Playwright journeys, dependency
+  audits, source/IaC/container scans, and CycloneDX SBOM generation.
+- The release workflow verified database-backed readiness, the three-item
+  service catalog, and the expected frontend content before promotion.
+
+The public root now serves the booking interface rather than the JSON response
+recorded during the original API-only acceptance test below.
+
+## Initial API release evidence
 
 - Serving revision: `signaldesk-dev-00003-jut`.
 - Production traffic: 100% to the serving revision.

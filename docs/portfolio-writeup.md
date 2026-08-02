@@ -1,139 +1,409 @@
-# Portfolio case study
+# SignalDesk Cloud Launch case study
 
-## Project title
+## Project summary
 
-**SignalDesk Cloud Launch: keyless, policy-gated delivery on Google Cloud**
+**SignalDesk Cloud Launch** is a production-style Google Cloud reference
+implementation for a small field-service business that needs online booking
+without operating servers or Kubernetes.
 
-## Verified implementation status
+The deployed product combines a responsive Next.js interface, a FastAPI API,
+and PostgreSQL persistence in one Cloud Run service. Terraform provisions the
+platform, GitHub Actions provides keyless and policy-gated delivery, and Google
+Cloud supplies private database networking, secret delivery, logs, monitoring,
+and cost guardrails.
 
-The trust bootstrap was applied on 2026-07-26. Its saved plan contained 29
-additions with no changes or deletions, the custom OPA gate returned no denials,
-and the exact binary plan applied successfully. State was migrated from the
-temporary local backend to a private, versioned GCS backend.
+This is a portfolio lab built with synthetic data, not a client case study. It
+demonstrates a production engineering approach while stating the controls that
+would still be required before processing real customer data.
 
-The development platform and application were deployed and verified on
-2026-07-27. GitHub Actions built and scanned one image, generated a CycloneDX
-SBOM, authenticated to GCP with OIDC, pushed the image, resolved its SHA-256
-digest, deployed a zero-traffic candidate, tested database-backed readiness,
-promoted the verified revision, and tested the public service. A synthetic
-booking was then created, retrieved, and updated through the live API, and its
-request ID was correlated in Cloud Logging.
+## Business problem
 
-A subsequent Terraform 1.15.8 run reported **No changes**. OPA passed the real
-plan, the apply job verified the saved plan checksum, and Terraform completed
-with zero additions, changes, or deletions. Both CI service accounts have zero
-user-managed keys. See the sanitized
-[bootstrap verification record](evidence/bootstrap-verification.md) and
-[deployment verification record](evidence/deployment-verification.md).
+A small service company wants customers to reserve appointment windows online
+and wants operations staff to manage those bookings. The company has a lean
+engineering team and cannot justify a Kubernetes platform or a collection of
+manually maintained virtual machines.
 
-Rollback, failure-injection alerting, backup restoration, load measurement,
-and final teardown remain explicit follow-up drills; this case study does not
-claim those tests are complete.
+The technical problem is broader than hosting a web page. The business needs:
 
-## Business problem and target client
+- one repeatable way to create the cloud foundation;
+- a transactional database that is not exposed to the public internet;
+- safe application releases that do not send customers to an untested build;
+- useful health signals and request-level troubleshooting;
+- protection from unbounded serverless scaling and surprise cloud bills;
+- CI/CD without a permanent Google service-account key in GitHub;
+- evidence that infrastructure and application changes passed security gates;
+- a documented path for rollback, recovery, and future hardening.
 
-A small service business needs a booking API but has no platform team. Manual
-console changes, permanent CI keys, unbounded serverless scaling, and an
-internet-addressable database would create avoidable security, reliability, and
-cost risks. The target client is a startup or small engineering team that needs
-a credible GCP foundation and safe delivery path without adopting Kubernetes.
+The target client is a startup, small business, or engineering team launching a
+transactional application on GCP without a dedicated platform team.
 
-## Architecture and GCP services
+## Verified outcome
 
-- Cloud Run for the FastAPI service and revision traffic management.
-- Artifact Registry for immutable container images and cleanup policies.
-- Cloud SQL for PostgreSQL 18 with private IP, backups, PITR, audit flags, and
-  encrypted client-certificate connections.
-- Custom VPC, subnet flow logs, Direct VPC egress, and Private Service Access.
-- Secret Manager for the generated database password.
-- Cloud Logging, Monitoring uptime checks, and a Cloud Billing budget.
-- GCS for versioned Terraform state and short-lived reviewed plans.
-- IAM, Security Token Service, and Workload Identity Federation for keyless CI.
-- GitHub Actions for PR validation, protected infrastructure delivery, and
-  no-traffic application promotion.
+The full-stack release was deployed on 2026-07-31 by
+[Main delivery run 30669346499](https://github.com/lucien95/signaldesk-cloud-launch/actions/runs/30669346499).
 
-## Implementation phases
+- Active Cloud Run revision: `signaldesk-dev-00005-nik`.
+- Production traffic: 100% to the verified revision.
+- Trusted source commit: `853500273f674daa0e97f5737eed15d92754abdf`.
+- Immutable image digest:
+  `sha256:addccfd244f9c119a544b303afe669e1126038c1baefdcb0fe12913530f79a52`.
+- Runtime: 1 vCPU, 512 MiB, request-based billing, minimum zero instances,
+  maximum three instances.
+- Database: private-IP Cloud SQL for PostgreSQL 18 with automated backups and
+  point-in-time recovery.
+- Delivery credentials: short-lived GitHub OIDC tokens; both CI service
+  accounts have zero user-managed keys.
 
-1. Build and test the booking API locally.
-2. Create the Terraform trust bootstrap and remote-state design.
-3. Build development infrastructure and private application networking.
-4. Add Checkov, custom OPA policies/tests, Trivy, dependency auditing, and SBOMs.
-5. Add keyless plan-review-apply and candidate revision promotion workflows.
-6. Deploy, exercise rollback and restore runbooks, measure, and publish
-   sanitized evidence.
+The live development demonstration is available at
+<https://signaldesk-dev-s2wvuscfya-ue.a.run.app>.
 
-## Terraform and IaC plan
+## System architecture
 
-The repository has two Terraform roots. `bootstrap` is the manually operated
-trust root; `environments/dev` is the repeatable delivery target. Both use
-locked providers. State is versioned and private in GCS. The delivery pipeline
-converts a saved plan to JSON for OPA, stores the hashed binary plan, and applies
-only that approved artifact. Terraform owns platform configuration while the
-application workflow owns the image, generated revision, and release-client
-metadata.
+![SignalDesk runtime, identity, and private VPC path](assets/architecture/signaldesk-runtime-vpc.png)
 
-## Security and DevSecOps
+The diagram separates three controls that are often incorrectly described as
+one “service-account login”: IAM authorizes the Cloud Run workload, private
+Google networking carries the connection, and PostgreSQL validates the
+database user plus the password injected from Secret Manager.
 
-There are no service-account JSON keys. Separate WIF pools and service accounts
-isolate infrastructure administration from application deployment. OIDC trust
-uses immutable GitHub IDs, `main`, exact workflow files, and exact environment
-claims. Checkov provides broad static IaC checks; OPA enforces SignalOps rules
-on real plans; Trivy scans the repository and image; pip-audit checks Python
-advisories; actions and tool downloads are immutable and verified. Images are
-deployed by digest after a zero-traffic smoke test.
+```mermaid
+flowchart LR
+    USER["Customer or operations browser"]
 
-## Monitoring, logging, and reliability
+    subgraph GCP["Google Cloud project"]
+      RUN["Cloud Run service<br/>Next.js static UI + FastAPI API"]
+      RUNTIME["Dedicated runtime<br/>service account"]
+      SECRET["Secret Manager<br/>database password"]
+      VPC["Custom VPC<br/>Direct VPC egress"]
+      SQL["Private Cloud SQL<br/>PostgreSQL 18"]
+      LOGS["Cloud Logging<br/>and Monitoring"]
+      AR["Artifact Registry<br/>image by digest"]
+    end
 
-The application emits structured JSON logs and request IDs. Cloud Run has
-startup and liveness probes; Monitoring checks readiness. VPC flow logs,
-Storage Data Access audit logs, Cloud SQL connection/audit flags, automated
-backups, and PITR provide operating evidence. A rollback runbook returns traffic
-to a known-good Cloud Run revision, while acceptance criteria require a timed
-restore drill rather than an untested backup claim.
+    USER -->|"HTTPS"| RUN
+    AR -->|"immutable image"| RUN
+    RUN -.->|"runs as"| RUNTIME
+    RUNTIME -->|"secretAccessor"| SECRET
+    RUNTIME -->|"cloudsql.client"| SQL
+    SECRET -->|"runtime environment value"| RUN
+    RUN -->|"private ranges only"| VPC
+    VPC --> SQL
+    RUN -->|"structured request logs"| LOGS
+```
+
+### Why one Cloud Run service
+
+Next.js builds the customer and operations interface as a static export. A
+multi-stage container build copies those static assets into the final Python
+image, and FastAPI serves them at `/` while serving JSON endpoints under
+`/api/v1`.
+
+That choice gives the first release one public origin, one deployable artifact,
+one scaling boundary, and no cross-origin browser configuration. It also avoids
+paying for a second idle runtime. The frontend is still a Next.js/React
+application; FastAPI is the backend and the production static-file server.
+
+This is not the only valid design. A larger team could deploy the frontend and
+API independently to scale and release them separately. For this client size,
+the operational simplicity of one container is more valuable.
+
+## How a booking crosses the system
+
+```mermaid
+sequenceDiagram
+    actor Customer
+    participant UI as Next.js interface
+    participant API as FastAPI on Cloud Run
+    participant SM as Secret Manager
+    participant DB as Private Cloud SQL
+    participant LOG as Cloud Logging
+
+    Customer->>UI: Select service, date, and time
+    UI->>API: GET /api/v1/availability
+    API->>DB: Query occupied slots
+    DB-->>API: Existing active bookings
+    API-->>UI: Available windows
+    Customer->>UI: Submit booking
+    UI->>API: POST /api/v1/bookings + request ID
+    API->>SM: Password already injected at startup
+    API->>DB: Validate and insert transaction
+    DB-->>API: Committed booking
+    API->>LOG: Structured completion event + request ID
+    API-->>UI: 201 + booking reference + request ID
+```
+
+The browser performs friendly validation, but it is not trusted. FastAPI
+revalidates the service, future timestamp, weekday, configured Eastern-time
+window, and request body. A database uniqueness rule and API conflict handling
+prevent two active bookings from silently taking the same slot.
+
+Operations staff can search and filter bookings, then complete or cancel them.
+Terminal bookings cannot be reopened. In this public lab the board contains
+only synthetic records and is deliberately not protected by staff identity.
+
+## The three authentication layers
+
+One of the most important lessons in this project is that “the service account
+authenticates to the database” is incomplete. Three different trust decisions
+occur.
+
+### 1. GitHub Actions to Google Cloud
+
+GitHub creates an OIDC identity token for the trusted workflow. Google Cloud
+Workload Identity Federation evaluates claims including the immutable
+repository and owner IDs, branch, workflow path, and GitHub environment. If the
+claims match, Google issues short-lived credentials for either the
+infrastructure deployment service account or the application deployment
+service account.
+
+No Google service-account JSON key is downloaded or stored in GitHub.
+
+### 2. Cloud Run workload to Google Cloud resources
+
+The running container uses a third, dedicated runtime service account. IAM
+allows that identity to access the configured Secret Manager secret and use
+the Cloud SQL connection integration. This answers: “Is this workload allowed
+to reach those Google Cloud resources?”
+
+The runtime service account is not the PostgreSQL user in this release.
+
+### 3. Application to PostgreSQL
+
+Cloud Run injects the latest database-password secret version into the
+container as `DB_PASSWORD`. The application combines it with `DB_USER`,
+`DB_NAME`, and the Cloud SQL connection name. SQLAlchemy and the PostgreSQL
+driver then authenticate as the database user `signaldesk_app`.
+
+IAM authorizes the secure route to Cloud SQL and access to the secret;
+PostgreSQL separately validates the database username and password. This
+separation is why granting `roles/cloudsql.client` alone does not log the
+application into PostgreSQL.
+
+## Private database networking
+
+Cloud SQL has no public IPv4 address. Terraform creates a custom VPC, reserves
+an internal address range for Private Service Access, and connects the service
+networking API. Cloud Run uses Direct VPC egress for private ranges to reach
+the database.
+
+Direct VPC egress was selected instead of a Serverless VPC Access connector to
+avoid connector instances and their recurring cost. The subnet has flow logs,
+and the database connection still requires Cloud SQL authorization and
+database credentials; a private address does not replace authentication.
+
+## Terraform structure and the bootstrap problem
+
+The repository intentionally has two Terraform roots:
+
+| Root | Responsibility | How it is operated |
+|---|---|---|
+| `terraform/bootstrap` | State bucket, Workload Identity Federation, CI service accounts, and initial IAM | Reviewed and applied locally as a one-time trust root |
+| `terraform/environments/dev` | Network, Cloud SQL, secret, Cloud Run, Artifact Registry, monitoring, logging, and budget | Planned and applied by protected GitHub Actions delivery |
+
+Bootstrap cannot initially store its own state in the GCS bucket because that
+bucket does not exist yet. Its first apply therefore uses temporary local
+state. Immediately afterward, the state is migrated into the private,
+versioned bucket that bootstrap created.
+
+Bootstrap is deliberately excluded from automatic delivery. It defines the
+identity that authorizes automatic delivery, so silently allowing that same
+pipeline to rewrite its own trust boundary would weaken the design.
+
+## Terraform and application ownership
+
+Terraform owns the Cloud Run platform configuration: identity, networking,
+secrets, resources, probes, scaling, labels, and exposure. The application
+workflow owns the container image and revision promotion.
+
+Terraform ignores the image and release-generated revision/client metadata.
+Without that ownership boundary, a later Terraform apply could roll the
+service back to an old placeholder image, while a new application deployment
+could appear as permanent Terraform drift.
+
+The design still drift-detects the controls Terraform is supposed to own. A
+post-release Terraform 1.15.8 run returned `No changes`, proving that the two
+delivery paths had reconciled cleanly.
+
+## CI/CD and DevSecOps lifecycle
+
+![SignalDesk GitHub Actions, identity, and verified delivery](assets/architecture/signaldesk-delivery-pipeline.png)
+
+Pull-request jobs produce read-only evidence. Only a protected `main` commit
+can enter the mutating delivery lanes, and infrastructure and application
+changes receive different short-lived Google Cloud identities.
+
+```mermaid
+flowchart TD
+    CHANGE["Developer or Dependabot change"] --> PR["Pull request"]
+    PR --> APPQ["Application quality"]
+    PR --> TFQ["Terraform quality"]
+    PR --> SEC["DevSecOps security gates"]
+    APPQ --> MERGE{"Required checks pass?"}
+    TFQ --> MERGE
+    SEC --> MERGE
+    MERGE -->|"No"| BLOCK["Merge blocked"]
+    MERGE -->|"Yes"| MAIN["Merge to protected main"]
+    MAIN --> DELIVERY["Main delivery orchestrator"]
+    DELIVERY --> RECHECK["Repeat quality and security gates"]
+    DELIVERY --> PATHS["Detect application and infrastructure changes"]
+    PATHS -->|"Infrastructure"| PLAN["Terraform plan + OPA on real plan"]
+    PLAN --> APPROVE["Protected environment approval"]
+    APPROVE --> APPLY["Verify checksum + apply exact plan"]
+    PATHS -->|"Application"| BUILD["Build once + Trivy + SBOM"]
+    APPLY --> BUILD
+    BUILD --> OIDC["OIDC to application deployment identity"]
+    OIDC --> CANDIDATE["Deploy immutable candidate at 0% traffic"]
+    CANDIDATE --> SMOKE["Readiness, API, and UI smoke tests"]
+    SMOKE --> PROMOTE["Promote verified revision to 100%"]
+```
+
+### Pull-request evidence
+
+- Ruff and Bandit check Python quality and security.
+- Pytest checks API validation, persistence, conflicts, filtering, and status
+  transitions.
+- ESLint, Vitest, and the Next.js production build check the frontend.
+- Playwright executes customer and operations journeys in desktop Chrome and a
+  mobile viewport.
+- Terraform format and validation run for both Terraform roots.
+- actionlint checks GitHub workflow syntax.
+- Checkov provides broad Terraform misconfiguration coverage.
+- OPA tests enforce project-specific rules that generic scanners cannot know.
+- Trivy scans source, IaC, secrets, dependencies, and the built image.
+- pip-audit and npm audit check dependency advisories.
+- CycloneDX SBOMs preserve component evidence for the test and release images.
+
+### Why Checkov, OPA, and Trivy all exist
+
+Their responsibilities overlap but are not identical:
+
+- Checkov recognizes common cloud and Terraform security mistakes.
+- OPA expresses SignalOps business rules, such as the maximum Cloud Run scale
+  and which service may be public, and evaluates the real Terraform plan.
+- Trivy finds vulnerable packages and secrets in the repository and the
+  container that will actually run.
+
+Passing one tool is not equivalent to passing all three perspectives.
+
+### Exact-plan infrastructure apply
+
+Main delivery creates a binary Terraform plan, converts it to JSON for OPA,
+hashes it, and stores the plan plus checksum in the protected state bucket. The
+apply job starts only after the protected GitHub environment permits it. It
+downloads the saved plan, verifies the checksum, and applies that exact binary
+artifact rather than generating a new proposal after approval.
+
+### Zero-traffic application promotion
+
+The deployment workflow builds the image once, scans it, generates an SBOM,
+pushes it to Artifact Registry, and resolves the immutable digest. Cloud Run
+creates a candidate revision with zero production traffic. The workflow tests
+database-backed readiness, the service catalog API, and the frontend marker on
+the candidate URL. Only a passing candidate receives 100% of traffic.
+
+If candidate validation fails, the existing revision keeps serving customers.
+
+## Observability and reliability
+
+Every response has a request ID. The API writes structured completion events
+with the request ID, method, path, status code, duration, and Cloud Run revision
+metadata. An operator can start with a booking confirmation's request ID and
+find the matching Cloud Logging entry.
+
+The application exposes:
+
+- `/health/live` for process liveness;
+- `/health/ready` for a database-backed readiness check;
+- startup and liveness probes in Cloud Run;
+- a Cloud Monitoring uptime check and alert policy;
+- VPC flow logs and selected audit logs for platform evidence.
+
+Cloud SQL has automated backups and point-in-time recovery. These settings are
+not treated as proof of recovery: a timed restore drill remains required.
 
 ## Cost controls
 
-Cloud Run scales to zero and is capped at three instances. Cloud SQL uses a
-small zonal tier, storage autoscaling has a ceiling, Direct VPC egress avoids
-connector instances, Artifact Registry removes old untagged images, pipeline
-artifacts expire, and a USD 10 budget alerts at 50%, 90%, and 100%. The case
-study explicitly states that a budget is not a hard cap.
+- Cloud Run scales to zero and cannot exceed three instances.
+- Cloud SQL uses a small zonal development tier.
+- Database disk autoscaling has a ceiling.
+- Direct VPC egress avoids always-on connector instances.
+- Artifact Registry deletes old untagged images.
+- Temporary Terraform plans and CI evidence have retention limits.
+- A USD 10 monthly budget alerts at 50%, 90%, and 100%.
 
-## Deliverables and proof assets
+The budget is an alert, not a hard spending cap. Cloud SQL remains the dominant
+always-on development cost until it is stopped or destroyed.
 
-- Architecture and trust-flow diagrams.
-- Deployable Terraform and policy unit tests.
-- GitHub Actions runs showing every security and deployment gate.
-- Sanitized Terraform plan/apply and zero-key identity evidence.
-- CycloneDX SBOM, clean image scan, and immutable deployed digest.
-- Cloud Run candidate/promotion and live API acceptance evidence.
-- Uptime, request-log correlation, and budget evidence.
-- Cost assumptions, limitations, and teardown record.
+## Engineering problems encountered
 
-Timed rollback, alert notification, database restore, load test, and teardown
-records are still pending and are not represented as completed deliverables.
+This project became a stronger proof asset because the implementation exposed
+real integration problems:
 
-## Portfolio angle
+- Trivy rejected the original public-IP database design, leading to Private
+  Service Access and Direct VPC egress.
+- Cloud SQL rejected an incompatible edition and machine-tier combination.
+- Cloud Run rejected an unsupported probe configuration.
+- Terraform plan JSON normalized resource names differently from source code,
+  requiring the custom OPA policy to evaluate the actual plan representation.
+- A nested `gcloud` formatting command initially failed to identify the
+  candidate revision; the existing revision safely retained all traffic.
+- Terraform and the application deployment initially competed over Cloud Run
+  release metadata until an explicit ownership boundary eliminated drift.
 
-Lead with the scanner-driven architecture improvement: Trivy blocked the first
-public-IP Cloud SQL design, so the final build adopted Private Service Access
-and Direct VPC egress. Then show how custom OPA rules capture business policies
-that generic tools cannot know, such as the three-instance cost ceiling and the
-rule that only the development service may be public. This demonstrates
-engineering judgment, not merely tool installation.
+These are more useful interview examples than a perfect first apply because
+they show how logs, plans, provider behavior, and safety controls were used to
+diagnose and correct the system.
 
-The implementation story is equally valuable: real delivery surfaced a Cloud
-SQL edition/tier mismatch, a Cloud Run probe incompatibility, normalized
-resource names in Terraform plans, a nested `gcloud` formatting trap, and a
-shared-ownership drift boundary between Terraform and application deployment.
-Each issue was diagnosed from evidence, fixed in a focused pull request, gated,
-and re-verified in the live environment.
+## Security boundary and honest limitations
+
+This project demonstrates a production-style platform, but the public
+development application intentionally uses synthetic data. Before a real
+customer deployment, the next controls would be:
+
+- staff identity and role-based authorization for operations endpoints;
+- rate limiting and abuse protection;
+- a custom domain, managed TLS edge, and Cloud Armor;
+- schema migrations rather than startup table creation;
+- asynchronous and idempotent email/SMS notifications;
+- IAM database authentication if supported by the operating model;
+- high-availability Cloud SQL where the recovery objective justifies the cost;
+- a completed rollback, alert, restore, and load-test evidence set;
+- a documented data retention and privacy policy.
+
+The project does not claim these incomplete controls as implemented.
+
+## Deliverables
+
+- Deployable Terraform bootstrap and development environment.
+- Versioned remote state and protected exact-plan delivery.
+- Responsive booking and operations application.
+- FastAPI API with PostgreSQL persistence and request correlation.
+- Keyless GitHub-to-GCP authentication with separated identities.
+- Checkov, OPA, Trivy, actionlint, dependency audit, and SBOM gates.
+- Private Cloud SQL networking and Secret Manager integration.
+- Cloud Logging, Monitoring, health probes, and uptime checking.
+- Budget, scaling, storage, image, and artifact guardrails.
+- Deployment, security, cost, application, rollback, and evidence documents.
 
 ## SignalOps service mapping
 
-The primary service is **Cloud Foundation Launch**: project identity, remote
-state, network, managed runtime, database, secrets, observability, budgets, and
-operational runbooks. The keyless pipeline and policy gates are a **Secure
-Delivery / DevSecOps Accelerator** add-on. The budget, scaling, and cleanup
-controls support a **Cloud Cost Guardrails** engagement, while probes, uptime
-checks, rollback, and recovery evidence support a **Reliability Baseline**.
+The primary engagement is **Cloud Foundation Launch**: identity, remote state,
+networking, managed runtime, database, secrets, observability, budgets, and
+runbooks. The delivery system maps to a **Secure Delivery / DevSecOps
+Accelerator**. Scaling and lifecycle controls map to **Cloud Cost Guardrails**,
+while health signals, log correlation, rollback, and recovery exercises map to
+a **Reliability Baseline**.
+
+## Proof links
+
+- [Source repository](https://github.com/lucien95/signaldesk-cloud-launch)
+- [Successful full-stack Main delivery](https://github.com/lucien95/signaldesk-cloud-launch/actions/runs/30669346499)
+- [Live development application](https://signaldesk-dev-s2wvuscfya-ue.a.run.app)
+- [Architecture decisions](architecture.md)
+- [Application walkthrough](application.md)
+- [Deployment guide](deployment.md)
+- [DevSecOps walkthrough](devsecops.md)
+- [Security model](security.md)
+- [Cost model](cost-model.md)
+- [Sanitized deployment evidence](evidence/deployment-verification.md)
+- [Rollback runbook](runbooks/rollback.md)
