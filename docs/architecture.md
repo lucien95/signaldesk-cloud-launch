@@ -1,5 +1,16 @@
 # Architecture decisions
 
+## Published architecture views
+
+![SignalDesk runtime, identity, and private VPC path](assets/architecture/signaldesk-runtime-vpc.png)
+
+![SignalDesk GitHub Actions, identity, and verified delivery](assets/architecture/signaldesk-delivery-pipeline.png)
+
+The runtime view answers how a browser request reaches a privately addressed
+database. The delivery view answers who may change that runtime and what
+evidence must exist before either Terraform or an application revision is
+promoted.
+
 ## Why Cloud Run
 
 The target client needs a managed container runtime, not a Kubernetes platform.

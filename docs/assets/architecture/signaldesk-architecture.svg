@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">SignalDesk Cloud Launch Google Cloud architecture</title>
+  <desc id="desc">A production-style architecture showing customers and operations users reaching a combined Next.js and FastAPI Cloud Run service, its private connection to Cloud SQL, runtime secret and service-account access, observability, cost controls, and separate keyless GitHub identities for application and infrastructure delivery.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071a2c"/>
+      <stop offset="1" stop-color="#0d2f4b"/>
+    </linearGradient>
+    <linearGradient id="runtime" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8f5ff"/>
+      <stop offset="1" stop-color="#d8ecff"/>
+    </linearGradient>
+    <linearGradient id="security" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#edf9f2"/>
+      <stop offset="1" stop-color="#d9f2e4"/>
+    </linearGradient>
+    <linearGradient id="delivery" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7df"/>
+      <stop offset="1" stop-color="#ffedbd"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#00111f" flood-opacity="0.22"/>
+    </filter>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f9d67"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <style>
+      .heading { font: 700 38px Inter, ui-sans-serif, system-ui, sans-serif; fill: #ffffff; }
+      .subtitle { font: 400 19px Inter, ui-sans-serif, system-ui, sans-serif; fill: #bdd2e4; }
+      .lane { font: 700 18px Inter, ui-sans-serif, system-ui, sans-serif; letter-spacing: 2px; fill: #85b6dc; }
+      .box-title { font: 700 22px Inter, ui-sans-serif, system-ui, sans-serif; fill: #102a43; }
+      .box-copy { font: 500 16px Inter, ui-sans-serif, system-ui, sans-serif; fill: #3d5366; }
+      .box-small { font: 600 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #52697c; }
+      .arrow-label { font: 700 14px Inter, ui-sans-serif, system-ui, sans-serif; fill: #cde1f2; paint-order: stroke; stroke: #0b2840; stroke-width: 6px; stroke-linejoin: round; }
+      .legend { font: 600 15px Inter, ui-sans-serif, system-ui, sans-serif; fill: #dceaf5; }
+      .boundary { fill: #ffffff; fill-opacity: 0.04; stroke: #70a9d2; stroke-width: 2; stroke-dasharray: 10 8; }
+      .box { stroke-width: 2; rx: 18; filter: url(#shadow); }
+      .runtime-box { fill: url(#runtime); stroke: #62a9e8; }
+      .security-box { fill: url(#security); stroke: #53b986; }
+      .delivery-box { fill: url(#delivery); stroke: #e2a11f; }
+      .neutral-box { fill: #f4f7fa; stroke: #a7bac9; }
+      .blue-line { fill: none; stroke: #3b82f6; stroke-width: 4; marker-end: url(#arrow-blue); }
+      .green-line { fill: none; stroke: #1f9d67; stroke-width: 4; marker-end: url(#arrow-green); }
+      .amber-line { fill: none; stroke: #d97706; stroke-width: 4; marker-end: url(#arrow-amber); }
+      .dashed { stroke-dasharray: 10 8; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1120" fill="url(#background)"/>
+  <text x="70" y="70" class="heading">SignalDesk Cloud Launch — GCP reference architecture</text>
+  <text x="70" y="105" class="subtitle">One deployable application, explicit trust boundaries, private PostgreSQL, verified promotion, and bounded cost.</text>
+
+  <rect x="295" y="145" width="1440" height="870" rx="28" class="boundary"/>
+  <text x="325" y="180" class="lane">GOOGLE CLOUD PROJECT · KLOUDWITHLUCIEN-503200 · US-EAST1</text>
+
+  <text x="70" y="225" class="lane">USERS</text>
+  <rect x="60" y="250" width="190" height="120" class="box neutral-box"/>
+  <text x="155" y="292" text-anchor="middle" class="box-title">Browser</text>
+  <text x="155" y="322" text-anchor="middle" class="box-copy">Customer booking</text>
+  <text x="155" y="347" text-anchor="middle" class="box-copy">Operations board</text>
+
+  <text x="70" y="740" class="lane">SOURCE</text>
+  <rect x="60" y="765" width="190" height="120" class="box neutral-box"/>
+  <text x="155" y="807" text-anchor="middle" class="box-title">GitHub</text>
+  <text x="155" y="837" text-anchor="middle" class="box-copy">Pull request gates</text>
+  <text x="155" y="862" text-anchor="middle" class="box-copy">Protected main</text>
+
+  <text x="330" y="225" class="lane">RUNTIME &amp; DATA PLANE</text>
+  <rect x="345" y="250" width="380" height="205" class="box runtime-box"/>
+  <text x="535" y="292" text-anchor="middle" class="box-title">Cloud Run · signaldesk-dev</text>
+  <text x="535" y="328" text-anchor="middle" class="box-copy">Next.js static interface at /</text>
+  <text x="535" y="356" text-anchor="middle" class="box-copy">FastAPI routes under /api/v1</text>
+  <text x="535" y="395" text-anchor="middle" class="box-small">Request-based billing · min 0 · max 3</text>
+  <text x="535" y="420" text-anchor="middle" class="box-small">Non-root container · port 8080</text>
+
+  <rect x="805" y="250" width="255" height="145" class="box security-box"/>
+  <text x="932" y="291" text-anchor="middle" class="box-title">Runtime identity</text>
+  <text x="932" y="324" text-anchor="middle" class="box-copy">Dedicated service account</text>
+  <text x="932" y="350" text-anchor="middle" class="box-small">Secret accessor · Cloud SQL client</text>
+
+  <rect x="805" y="430" width="255" height="145" class="box security-box"/>
+  <text x="932" y="471" text-anchor="middle" class="box-title">Secret Manager</text>
+  <text x="932" y="504" text-anchor="middle" class="box-copy">DB_PASSWORD reference</text>
+  <text x="932" y="530" text-anchor="middle" class="box-small">Payload injected only at runtime</text>
+
+  <rect x="1135" y="250" width="255" height="145" class="box runtime-box"/>
+  <text x="1262" y="291" text-anchor="middle" class="box-title">Direct VPC egress</text>
+  <text x="1262" y="324" text-anchor="middle" class="box-copy">Private ranges only</text>
+  <text x="1262" y="350" text-anchor="middle" class="box-small">Custom subnet with flow logs</text>
+
+  <rect x="1460" y="250" width="235" height="145" class="box runtime-box"/>
+  <text x="1577" y="291" text-anchor="middle" class="box-title">Cloud SQL</text>
+  <text x="1577" y="324" text-anchor="middle" class="box-copy">PostgreSQL · private IP</text>
+  <text x="1577" y="350" text-anchor="middle" class="box-small">No public IPv4 · PITR</text>
+
+  <rect x="1135" y="430" width="255" height="145" class="box neutral-box"/>
+  <text x="1262" y="471" text-anchor="middle" class="box-title">Cloud Operations</text>
+  <text x="1262" y="504" text-anchor="middle" class="box-copy">Structured Logging</text>
+  <text x="1262" y="530" text-anchor="middle" class="box-small">Monitoring · uptime · alerts</text>
+
+  <rect x="1460" y="430" width="235" height="145" class="box neutral-box"/>
+  <text x="1577" y="471" text-anchor="middle" class="box-title">Cost controls</text>
+  <text x="1577" y="504" text-anchor="middle" class="box-copy">USD 10 monthly budget</text>
+  <text x="1577" y="530" text-anchor="middle" class="box-small">50% · 90% · 100% alerts</text>
+
+  <path d="M 250 310 L 345 310" class="blue-line"/>
+  <text x="297" y="292" text-anchor="middle" class="arrow-label">HTTPS</text>
+  <path d="M 725 325 L 805 325" class="green-line dashed"/>
+  <text x="765" y="304" text-anchor="middle" class="arrow-label">runs as</text>
+  <path d="M 932 395 L 932 430" class="green-line"/>
+  <path d="M 805 502 L 725 392" class="green-line"/>
+  <text x="758" y="463" text-anchor="middle" class="arrow-label">inject</text>
+  <path d="M 725 365 C 895 610, 1040 365, 1135 325" class="blue-line"/>
+  <text x="965" y="603" text-anchor="middle" class="arrow-label">database traffic</text>
+  <path d="M 1390 325 L 1460 325" class="blue-line"/>
+  <text x="1425" y="304" text-anchor="middle" class="arrow-label">PSA</text>
+  <path d="M 725 410 C 880 655, 1060 510, 1135 510" class="blue-line"/>
+  <text x="950" y="636" text-anchor="middle" class="arrow-label">request IDs + metrics</text>
+
+  <text x="330" y="680" class="lane">KEYLESS DELIVERY &amp; INFRASTRUCTURE PLANE</text>
+  <rect x="345" y="710" width="240" height="160" class="box delivery-box"/>
+  <text x="465" y="752" text-anchor="middle" class="box-title">GitHub Actions</text>
+  <text x="465" y="785" text-anchor="middle" class="box-copy">Quality · Checkov · OPA</text>
+  <text x="465" y="812" text-anchor="middle" class="box-copy">Trivy · SBOM · smoke tests</text>
+  <text x="465" y="840" text-anchor="middle" class="box-small">No stored Google Cloud key</text>
+
+  <rect x="665" y="710" width="285" height="160" class="box security-box"/>
+  <text x="807" y="752" text-anchor="middle" class="box-title">Workload Identity</text>
+  <text x="807" y="785" text-anchor="middle" class="box-copy">Separate app + infra pools</text>
+  <text x="807" y="812" text-anchor="middle" class="box-copy">Repository, branch, workflow</text>
+  <text x="807" y="840" text-anchor="middle" class="box-small">and environment claim conditions</text>
+
+  <rect x="1030" y="690" width="265" height="115" class="box delivery-box"/>
+  <text x="1162" y="730" text-anchor="middle" class="box-title">Application identity</text>
+  <text x="1162" y="762" text-anchor="middle" class="box-copy">Image publish + revision deploy</text>
+
+  <rect x="1030" y="835" width="265" height="115" class="box delivery-box"/>
+  <text x="1162" y="875" text-anchor="middle" class="box-title">Infrastructure identity</text>
+  <text x="1162" y="907" text-anchor="middle" class="box-copy">Terraform plan + exact apply</text>
+
+  <rect x="1370" y="690" width="325" height="115" class="box neutral-box"/>
+  <text x="1532" y="730" text-anchor="middle" class="box-title">Artifact Registry</text>
+  <text x="1532" y="762" text-anchor="middle" class="box-copy">Scanned image promoted by digest</text>
+
+  <rect x="1370" y="835" width="325" height="115" class="box neutral-box"/>
+  <text x="1532" y="875" text-anchor="middle" class="box-title">GCS Terraform state</text>
+  <text x="1532" y="907" text-anchor="middle" class="box-copy">Versioned, locked, protected plans</text>
+
+  <path d="M 250 825 L 345 795" class="amber-line"/>
+  <path d="M 585 790 L 665 790" class="amber-line"/>
+  <text x="625" y="770" text-anchor="middle" class="arrow-label">OIDC token</text>
+  <path d="M 950 760 L 1030 747" class="green-line"/>
+  <path d="M 950 820 L 1030 892" class="green-line"/>
+  <path d="M 1295 747 L 1370 747" class="amber-line"/>
+  <path d="M 1532 690 C 1510 635, 1200 650, 700 456" class="amber-line"/>
+  <text x="1260" y="647" text-anchor="middle" class="arrow-label">immutable candidate · 0% → smoke test → 100%</text>
+  <path d="M 1295 892 L 1370 892" class="amber-line"/>
+  <path d="M 1162 835 C 1130 660, 980 640, 700 455" class="amber-line dashed"/>
+  <text x="1020" y="665" text-anchor="middle" class="arrow-label">Terraform owns platform controls</text>
+
+  <rect x="60" y="1040" width="20" height="20" rx="5" fill="#d8ecff" stroke="#62a9e8" stroke-width="2"/>
+  <text x="92" y="1056" class="legend">Runtime and network path</text>
+  <rect x="355" y="1040" width="20" height="20" rx="5" fill="#d9f2e4" stroke="#53b986" stroke-width="2"/>
+  <text x="387" y="1056" class="legend">Identity and secrets</text>
+  <rect x="620" y="1040" width="20" height="20" rx="5" fill="#ffedbd" stroke="#e2a11f" stroke-width="2"/>
+  <text x="652" y="1056" class="legend">Delivery and infrastructure change</text>
+  <text x="1740" y="1056" text-anchor="end" class="legend">Solid arrows move requests or artifacts · dashed arrows express ownership or identity</text>
+</svg>

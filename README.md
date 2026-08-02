@@ -26,6 +26,13 @@ The company has a lean engineering team and needs:
 
 ## Architecture
 
+The published architecture is split into two reviewable views so the runtime
+trust boundary is not confused with the delivery trust boundary.
+
+![SignalDesk runtime, identity, and private VPC path](docs/assets/architecture/signaldesk-runtime-vpc.png)
+
+![SignalDesk GitHub Actions and verified delivery path](docs/assets/architecture/signaldesk-delivery-pipeline.png)
+
 ```mermaid
 flowchart LR
     CUSTOMER["Customer or operator browser"] --> CR
@@ -144,7 +151,10 @@ itself is not considered completion.
 - [ ] Capture rollback and alert evidence
 - [ ] Run backup/restore drill
 - [x] Publish the repository case study
-- [ ] Publish the case study on the SignalOps website
+- [x] Update the case study for the verified full-stack release
+- [x] Capture and sanitize the organized screenshot evidence set
+- [ ] Publish the educational Medium article
+- [ ] Publish the case study on the cloudwithlucien.com portfolio
 
 The sanitized [bootstrap verification record](docs/evidence/bootstrap-verification.md)
 captures the reviewed plan, OPA decision, apply result, remote-state migration,
@@ -170,3 +180,9 @@ Start with [the DevSecOps walkthrough](docs/devsecops.md) to understand how the
 files and delivery stages connect. The complete deployment order is in
 [the deployment guide](docs/deployment.md), and the browser-to-database flow is
 in [the application guide](docs/application.md).
+
+For a single end-to-end narrative, read the
+[technical portfolio case study](docs/portfolio-writeup.md). When collecting
+visual proof for an article or interview, follow the
+[screenshot capture guide](docs/evidence/screenshot-guide.md) so every image
+has a specific control, explanation, and redaction rule.
