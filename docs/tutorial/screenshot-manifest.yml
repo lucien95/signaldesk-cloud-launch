@@ -1,0 +1,255 @@
+version: 1
+project: signaldesk-cloud-launch
+policy:
+  public_data_only: true
+  original_capture_location: outside_git
+  allowed_statuses:
+    - planned
+    - captured
+    - sanitized
+    - published
+    - rejected
+
+screenshots:
+  - id: SD-00-01
+    chapter: 00-orientation
+    filename: sd-00-01-runtime-architecture.png
+    kind: instruction
+    claim: Runtime boundaries and the private data path are understandable before implementation.
+    capture: Export the reviewed runtime architecture SVG at readable resolution.
+    redact: none
+    status: planned
+
+  - id: SD-00-02
+    chapter: 00-orientation
+    filename: sd-00-02-delivery-architecture.png
+    kind: instruction
+    claim: CI/CD identity, plan integrity, and promotion boundaries are understandable.
+    capture: Export the reviewed CI/CD architecture SVG at readable resolution.
+    redact: none
+    status: planned
+
+  - id: SD-01-01
+    chapter: 01-workstation
+    filename: sd-01-01-repository-structure.png
+    kind: instruction
+    claim: The reader opened the correct repository and can identify its major components.
+    capture: VS Code Explorer with only the project tree and repository name visible.
+    redact: Crop unrelated workspaces, account avatars, notifications, and local personal paths.
+    status: planned
+
+  - id: SD-01-02
+    chapter: 01-workstation
+    filename: sd-01-02-tool-versions.png
+    kind: evidence
+    claim: Required CLI and runtime tools are installed.
+    capture: Bounded terminal output for gcloud, Terraform, Docker, Python, GitHub CLI, jq, and Make versions.
+    redact: Remove unrelated shell history and local usernames when unnecessary.
+    status: planned
+
+  - id: SD-02-01
+    chapter: 02-gcp-project
+    filename: sd-02-01-project-dashboard.png
+    kind: instruction
+    claim: The intended project name and project ID exist and are selected.
+    capture: GCP project dashboard header with project name and ID.
+    redact: Project number if not required; unrelated recent projects.
+    status: planned
+
+  - id: SD-02-02
+    chapter: 02-gcp-project
+    filename: sd-02-02-billing-enabled.png
+    kind: evidence
+    claim: Billing is linked and enabled for the project.
+    capture: Project billing status without account details.
+    redact: Billing-account ID, payment method, invoices, legal name, and address.
+    status: planned
+
+  - id: SD-02-03
+    chapter: 02-gcp-project
+    filename: sd-02-03-cli-adc-context.png
+    kind: evidence
+    claim: Human CLI account, active project, and ADC quota project are correct.
+    capture: Formatted terminal output showing only account, project, quota project, and billing-enabled boolean.
+    redact: Authorization URLs, codes, access tokens, refresh tokens, and unrelated accounts.
+    status: planned
+
+  - id: SD-03-01
+    chapter: 03-bootstrap
+    filename: sd-03-01-bootstrap-plan-summary.png
+    kind: evidence
+    claim: The initial bootstrap proposal contains reviewed additions and no destructive actions.
+    capture: Terraform bootstrap plan summary and OPA pass.
+    redact: Billing identifiers, raw plan JSON, state content, and local paths.
+    status: planned
+
+  - id: SD-03-02
+    chapter: 03-bootstrap
+    filename: sd-03-02-state-bucket-controls.png
+    kind: evidence
+    claim: Remote state is versioned, uniformly controlled, and protected from public access.
+    capture: Cloud Storage bucket protection and versioning settings.
+    redact: Object names if they reveal short-lived run identifiers; do not open state objects.
+    status: planned
+
+  - id: SD-03-03
+    chapter: 03-bootstrap
+    filename: sd-03-03-bootstrap-outputs.png
+    kind: instruction
+    claim: Bootstrap produced the identifiers required by GitHub variables.
+    capture: Formatted Terraform outputs showing resource identifiers only.
+    redact: Billing identifiers and any accidental local credential output.
+    status: planned
+
+  - id: SD-04-01
+    chapter: 04-github-oidc
+    filename: sd-04-01-github-environments.png
+    kind: instruction
+    claim: Three exact GitHub environment names exist for plan, apply, and application delivery.
+    capture: GitHub Environments list.
+    redact: Reviewer email addresses and unrelated environments.
+    status: planned
+
+  - id: SD-04-02
+    chapter: 04-github-oidc
+    filename: sd-04-02-actions-variable-names.png
+    kind: instruction
+    claim: Required non-secret repository variables are configured centrally.
+    capture: Actions variables names and safe identifiers.
+    redact: Billing-account value; never reveal secrets.
+    status: planned
+
+  - id: SD-04-03
+    chapter: 04-github-oidc
+    filename: sd-04-03-wif-attribute-condition.png
+    kind: evidence
+    claim: GCP validates immutable repository, branch, workflow, and environment claims.
+    capture: WIF provider attribute mapping and condition.
+    redact: Nothing required unless unrelated principals appear.
+    status: planned
+
+  - id: SD-04-04
+    chapter: 04-github-oidc
+    filename: sd-04-04-zero-user-managed-keys.png
+    kind: evidence
+    claim: Both CI service accounts have zero user-managed keys.
+    capture: Formatted CLI results for both service accounts.
+    redact: Crop unrelated service accounts and local account details.
+    status: planned
+
+  - id: SD-05-01
+    chapter: 05-infrastructure-devsecops
+    filename: sd-05-01-pr-quality-gates.png
+    kind: evidence
+    claim: Application, Terraform, and DevSecOps checks passed before merge.
+    capture: GitHub pull-request checks summary.
+    redact: Unrelated browser tabs and notifications.
+    status: planned
+
+  - id: SD-05-02
+    chapter: 05-infrastructure-devsecops
+    filename: sd-05-02-checkov-opa-trivy.png
+    kind: evidence
+    claim: IaC, policy, secret, dependency, and image gates executed successfully.
+    capture: Concise workflow output with Checkov summary, OPA tests, and Trivy result.
+    redact: Runner environment values and any discovered secret-like test fixtures.
+    status: planned
+
+  - id: SD-05-03
+    chapter: 05-infrastructure-devsecops
+    filename: sd-05-03-terraform-plan-approval.png
+    kind: evidence
+    claim: A protected environment separates plan creation from exact-plan apply.
+    capture: GitHub deployment approval view and plan job dependency.
+    redact: Reviewer email if not public.
+    status: planned
+
+  - id: SD-05-04
+    chapter: 05-infrastructure-devsecops
+    filename: sd-05-04-private-cloud-sql.png
+    kind: evidence
+    claim: Cloud SQL has no public IPv4 address and uses a private network.
+    capture: Cloud SQL Connections settings.
+    redact: Private IP address and connection name if unnecessary.
+    status: planned
+
+  - id: SD-06-01
+    chapter: 06-release
+    filename: sd-06-01-main-delivery-jobs.png
+    kind: evidence
+    claim: Main delivery executed gated infrastructure and application jobs in order.
+    capture: GitHub Actions job graph for a successful release.
+    redact: None beyond normal browser cleanup.
+    status: planned
+
+  - id: SD-06-02
+    chapter: 06-release
+    filename: sd-06-02-artifact-digest.png
+    kind: evidence
+    claim: The released image is identified by a SHA-256 digest.
+    capture: Artifact Registry image details showing commit tag and digest.
+    redact: Unrelated artifacts and project number if displayed.
+    status: planned
+
+  - id: SD-06-03
+    chapter: 06-release
+    filename: sd-06-03-cloud-run-traffic.png
+    kind: evidence
+    claim: The verified candidate revision received 100% traffic after the smoke test.
+    capture: Cloud Run revisions/traffic view with serving revision.
+    redact: Candidate URLs containing temporary tags if no longer needed.
+    status: planned
+
+  - id: SD-07-01
+    chapter: 07-runtime-evidence
+    filename: sd-07-01-api-transaction.png
+    kind: evidence
+    claim: A synthetic booking was created, retrieved, and updated through the public API.
+    capture: Bounded terminal output with synthetic request and status change.
+    redact: Use only example.com data; remove private IPs and headers unrelated to request ID.
+    status: planned
+
+  - id: SD-07-02
+    chapter: 07-runtime-evidence
+    filename: sd-07-02-correlated-request-log.png
+    kind: evidence
+    claim: A live request is traceable by request ID to method, path, status, latency, and revision.
+    capture: Cloud Logging query result for the synthetic request ID.
+    redact: Other requests, user data, and unrelated labels.
+    status: planned
+
+  - id: SD-07-03
+    chapter: 07-runtime-evidence
+    filename: sd-07-03-readiness-uptime.png
+    kind: evidence
+    claim: Monitoring checks the database-backed readiness endpoint every 60 seconds.
+    capture: Uptime check configuration and current result.
+    redact: None unless unrelated monitors appear.
+    status: planned
+
+  - id: SD-08-01
+    chapter: 08-operations-publication
+    filename: sd-08-01-budget-thresholds.png
+    kind: evidence
+    claim: The project has a $10 budget with 50%, 90%, and 100% thresholds.
+    capture: Budget name, amount, and threshold settings.
+    redact: Billing-account ID and all payment details.
+    status: planned
+
+  - id: SD-08-02
+    chapter: 08-operations-publication
+    filename: sd-08-02-backup-list.png
+    kind: evidence
+    claim: Automated Cloud SQL backups are completing successfully.
+    capture: Backup list with status and timestamps.
+    redact: Instance private address and unrelated projects.
+    status: planned
+
+  - id: SD-08-03
+    chapter: 08-operations-publication
+    filename: sd-08-03-public-case-study.png
+    kind: evidence
+    claim: The sanitized case study is published with live, source, architecture, and verification links.
+    capture: Final SignalOps project page after architecture publication.
+    redact: Admin navigation, authenticated session details, and browser account information.
+    status: planned

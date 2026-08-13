@@ -55,6 +55,16 @@ The first iteration uses the Cloud Run service URL. A global HTTPS load
 balancer, custom domain, Cloud Armor, IAM database authentication, HA, and
 multi-region recovery remain explicit production extensions.
 
+Review the full [runtime architecture](docs/diagrams/signaldesk-runtime-architecture.svg)
+and [keyless delivery architecture](docs/diagrams/signaldesk-delivery-architecture.svg).
+The two-page [editable diagram](docs/diagrams/signaldesk-architecture.drawio)
+can be imported into Lucidchart.
+
+To reproduce the platform from an empty GCP project, follow the numbered
+[zero-to-verified workshop](docs/tutorial/README.md). It includes screenshot
+checkpoints, redaction rules, troubleshooting, business reasoning, and an
+interview explanation at every stage.
+
 ## Repository layout
 
 ```text
@@ -154,7 +164,8 @@ itself is not considered completion.
 - [x] Update the case study for the verified full-stack release
 - [x] Capture and sanitize the organized screenshot evidence set
 - [ ] Publish the educational Medium article
-- [ ] Publish the case study on the cloudwithlucien.com portfolio
+- [x] Publish the case study on the cloudwithlucien.com portfolio
+- [x] Publish the case study on the SignalOps website
 
 The sanitized [bootstrap verification record](docs/evidence/bootstrap-verification.md)
 captures the reviewed plan, OPA decision, apply result, remote-state migration,
@@ -186,3 +197,10 @@ For a single end-to-end narrative, read the
 visual proof for an article or interview, follow the
 [screenshot capture guide](docs/evidence/screenshot-guide.md) so every image
 has a specific control, explanation, and redaction rule.
+
+Start with the [zero-to-verified workshop](docs/tutorial/README.md) for a new
+build. Use the [manual verification lab](docs/manual-verification-lab.md) to
+recheck an existing deployment and practice explaining each boundary. Then use
+[the DevSecOps walkthrough](docs/devsecops.md) to trace the files and delivery
+stages. The shorter production sequence is in
+[the deployment guide](docs/deployment.md).

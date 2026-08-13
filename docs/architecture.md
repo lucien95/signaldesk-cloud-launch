@@ -11,6 +11,23 @@ database. The delivery view answers who may change that runtime and what
 evidence must exist before either Terraform or an application revision is
 promoted.
 
+## Architecture diagrams
+
+The architecture is split into two views so runtime networking is not confused
+with CI/CD trust and release controls.
+
+![SignalDesk runtime architecture](diagrams/signaldesk-runtime-architecture.svg)
+
+![SignalDesk CI/CD and release architecture](diagrams/signaldesk-delivery-architecture.svg)
+
+The editable two-page source is
+[`signaldesk-architecture.drawio`](diagrams/signaldesk-architecture.drawio).
+Lucidchart can import Draw.io documents, so this source can be opened there and
+refined without rebuilding the diagram from a static image. The numbered flows
+are built in order in the
+[zero-to-verified workshop](tutorial/README.md) and checked step by step in the
+[`manual-verification-lab.md`](manual-verification-lab.md).
+
 ## Why Cloud Run
 
 The target client needs a managed container runtime, not a Kubernetes platform.

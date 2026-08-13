@@ -49,7 +49,6 @@ Only after reviewing the plan:
 
 ```bash
 terraform -chdir=terraform/bootstrap apply bootstrap.tfplan
-cp terraform/bootstrap/backend.gcs.tf.example terraform/bootstrap/backend.tf
 terraform -chdir=terraform/bootstrap init -migrate-state \
   -backend-config="bucket=kloudwithlucien-503200-signaldesk-tfstate" \
   -backend-config="prefix=signaldesk/bootstrap"
@@ -64,9 +63,10 @@ terraform -chdir=terraform/bootstrap output
 ```
 
 Why this sequence exists: the bucket cannot store bootstrap state until
-bootstrap creates the bucket. Migration closes that temporary local-state
-window immediately after creation. Commit `terraform/bootstrap/backend.tf`
-after a successful migration so later checkouts use the remote backend.
+bootstrap creates the bucket. The repository already declares the empty GCS
+backend block; the first initialization bypasses it with `-backend=false`.
+Migration closes that temporary local-state window immediately after creation,
+and later initializations supply the bucket and prefix explicitly.
 
 ## 4. Create GitHub environments
 
